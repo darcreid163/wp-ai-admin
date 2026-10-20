@@ -58,6 +58,7 @@ try {
     doc_expect(($applied['status']??'')==='applied' && !empty($applied['verified']),
         'Apply did not commit verified status');
     doc_expect(!empty($applied['proof']['verified']) &&
+        ($applied['proof']['phase']??'')==='after' &&
         ($applied['receipt']['event']??'')==='apply',
         'Verified Apply proof/receipt missing');
     doc_expect(OAI_Elementor_Schema_Save::same_tree(
@@ -73,7 +74,10 @@ try {
         'Execute Rollback');
     doc_expect(($rollback['status']??'')==='rolled_back' && !empty($rollback['verified']) &&
         !empty($rollback['proof']['verified']) &&
-        ($rollback['receipt']['event']??'')==='rollback','Verified rollback/receipt missing');
+        ($rollback['proof']['phase']??'')==='rollback' &&
+        ($rollback['proof']['hash']??'')!==($applied['proof']['hash']??'') &&
+        ($rollback['receipt']['event']??'')==='rollback',
+        'Rollback must have its own phase-specific proof, not cached Apply proof');
     doc_expect(OAI_Elementor_Schema_Save::same_tree(
         doc_success(OAI_Elementor_Schema_Save::snapshot($post),'Read Rollback')['tree'],$original
     ),'Rollback failed to restore trusted DB before-image');
