@@ -14,12 +14,13 @@ $GLOBALS['oai_actor']=7;
 $GLOBALS['oai_can_edit']=true;
 $GLOBALS['oai_can_admin']=true;
 $GLOBALS['oai_post_state']='draft';
+$GLOBALS['oai_post_type']='page';
 function get_current_user_id(){return $GLOBALS['oai_actor'];}
 function current_user_can($cap,...$args){
     if($cap==='edit_post')return $GLOBALS['oai_can_edit'] && ($args[0]??0)===17;
     return $cap==='manage_options' && $GLOBALS['oai_can_admin'];
 }
-function get_post($id){return $id===17?(object)['ID'=>17,'post_status'=>$GLOBALS['oai_post_state']]:null;}
+function get_post($id){return $id===17?(object)['ID'=>17,'post_status'=>$GLOBALS['oai_post_state'],'post_type'=>$GLOBALS['oai_post_type']]:null;}
 class OAI_Elementor {
     public static $tree=array(17=>[['id'=>'aabbccdd','elType'=>'widget','widgetType'=>'heading','settings'=>['title'=>'Before'],'elements'=>[]]]);
     public static function get_data($id){return self::$tree[$id] ?? new WP_Error('oai_no_post');}
@@ -79,6 +80,11 @@ $GLOBALS['oai_can_admin']=true;
 $GLOBALS['oai_post_state']='trash';
 fail_code($binding::inspect(12,'apply',17),'oai_binding_post');
 $GLOBALS['oai_post_state']='draft';
+$GLOBALS['oai_post_type']='attachment';
+fail_code($binding::inspect(12,'apply',17),'oai_binding_post');
+$GLOBALS['oai_post_type']='revision';
+fail_code($binding::inspect(12,'apply',17),'oai_binding_post');
+$GLOBALS['oai_post_type']='page';
 OAI_DB::$row['approved_at']=null;
 fail_code($binding::inspect(12,'apply',17),'oai_binding_approval');
 OAI_DB::$row['approved_at']='2026-10-20 10:00:00';
