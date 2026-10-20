@@ -1,0 +1,33 @@
+name: Native validation
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  php:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.3', '8.4']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          coverage: none
+      - name: PHP lint
+        run: find . -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Elementor schema/save lifecycle
+        run: php tests/elementor-schema-save-stage1.php
+      - name: Elementor single-source
+        run: php tests/elementor-single-source.php
+      - name: WooCommerce stock
+        run: php tests/woocommerce-stock-rounding.php
+      - name: Option normalization
+        run: php tests/option-normalization.php
+      - name: Control plane entitlements
+        run: php tests/control-plane-entitlements.php
