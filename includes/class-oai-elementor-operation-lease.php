@@ -48,7 +48,7 @@ final class OAI_Elementor_Operation_Lease {
             return new WP_Error('oai_lease_planner_missing','Trusted operation planner unavailable',array('status'=>503));
         }
         $persisted=OAI_DB::get(absint($checked['id'] ?? 0));
-        $provenance=OAI_Elementor_Trusted_Planner::verify_record($persisted);
+        $provenance=OAI_Elementor_Trusted_Planner::verify_approval_record($persisted);
         if (is_wp_error($provenance)) return $provenance;
         global $wpdb;
         if (!isset($wpdb) || !is_object($wpdb) || !method_exists($wpdb, 'prepare') ||
