@@ -87,7 +87,8 @@ final class OAI_Elementor_Operation_Binding {
         if (is_wp_error($live)) return $live;
         $expected_tree = $action === 'apply' ? $before : $after;
         $expected_sha = $action === 'apply' ? $sha_before : $sha_after;
-        if ($live['tree'] !== $expected_tree || !hash_equals($live['sha256'], $expected_sha)) {
+        if (!OAI_Elementor_Schema_Save::same_tree($live['tree'], $expected_tree) ||
+            !hash_equals($live['sha256'], $expected_sha)) {
             return new WP_Error('oai_binding_stale', 'Live document differs from operation snapshot', array('status'=>409));
         }
         return array(
