@@ -40,6 +40,21 @@ check(strlen($original['sha256'])===64,'snapshot invalid');
 $changed=array(array('id'=>'a','elType'=>'widget','settings'=>array('title'=>'New')));
 $proposal=$adapter::validate_replace($original['tree'],$changed,$original['sha256']);
 check(!is_wp_error($proposal),'Sandbox preparation failed');
+$reordered_original=$original['tree'];
+$reordered_original[0]=array('settings'=>array('title'=>'Old'),'elType'=>'widget','id'=>'a');
+check($adapter::same_tree($reordered_original,$original['tree']),'Associative Elementor keys should compare equal');
+check($adapter::tree_hash($reordered_original)===$original['sha256'],'Semantic hash must ignore associative key order');
+error_code($adapter::validate_replace($original['tree'],$reordered_original,$original['sha256']),'oai_noop');
+$reordered_new=$changed;
+$reordered_new[0]=array('settings'=>array('title'=>'New'),'elType'=>'widget','id'=>'a');
+check($adapter::same_tree($changed,$reordered_new),'Approved image should allow nonsemantic reordering');
+$node_order=array(
+ array('id'=>'x','elType'=>'widget','settings'=>array('title'=>'First')),
+ array('id'=>'y','elType'=>'widget','settings'=>array('title'=>'Second'))
+);
+$swapped=array_reverse($node_order);
+check(!$adapter::same_tree($node_order,$swapped),'Widget list order must remain significant');
+check(!$adapter::same_tree(array('n'=>1),array('n'=>'1')),'Settings scalar types must remain significant');
 error_code($adapter::validate_replace($original['tree'],$changed,str_repeat('0',64)),'oai_snapshot_mismatch');
 error_code($adapter::validate_replace($original['tree'],$original['tree'],$original['sha256']),'oai_noop');
 error_code($adapter::validate_replace($original['tree'],array('bad'),$original['sha256']),'invalid_node');
@@ -55,6 +70,10 @@ check($adapter::snapshot(42)['tree']===$original['tree'],'malformed digest must 
 check($adapter::snapshot(42)['tree']===$original['tree'],'approval bypass mutated page');
 OAI_Elementor::$trees[42][0]['settings']['title']='Human edit';
 error_code($adapter::apply_approved(42,$proposal,true),'oai_stale_target');
+OAI_Elementor::$trees[42]=$reordered_original;
+check($adapter::apply_approved(42,$proposal,true)===true,'Same content with reordered keys should not trigger a stale conflict');
+check($adapter::verify(42,$changed)['ok']===true,'Canonical saved content must verify');
+check($adapter::rollback_approved(42,$proposal,true)===true,'Canonical rollback after key shuffle');
 OAI_Elementor::$trees[42]=$original['tree'];
 OAI_Elementor::$fail=true;
 error_code($adapter::apply_approved(42,$proposal,true),'write_failed');
