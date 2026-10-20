@@ -90,3 +90,25 @@ The new Stage-2 binding utility is **read-only** and is NOT registered at runtim
 
 ## Explicitly out of scope now
 Unbounded batch expansion, replacing all editors, auto-subscription charges, Cloud scaling architecture and quota reset enhancements. These will be handled after commercial release stability.
+
+## 2026-10-20 follow-up: operation binding hardening
+
+Primary integration Draft PR #6 (newest executable commit `26e51a89`) now also includes:
+
+- Fail-closed WordPress owner/capability scoping for the **read-only** operation preflight: current actor must match the persisted `owner_user_id`, have `manage_options` plus `edit_post`, and target document may not be trashed/auto-draft.
+- Requires persisted approval identity/date, denies expired Apply, and denies Rollback when no `applied_at` is recorded.
+- `inspect_ai_authorized()` checks `OAI_AI_Lifecycle_Control::request_authorized` for the **exact operation and action** before returning the snapshot; no method here performs a write.
+- A disposable WordPress/MySQL+Elementor test creates an operation and document, tests anonymous denial and missing scoped AI authorization, stale Apply, stale Rollback, and removes test data in finally.
+- CI proof: [run #39407599458](https://github.com/darcreid163/wp-ai-admin/actions/runs/39407599458) — PHP 8.2, 8.3, 8.4 and real WP smoke, all **passed**.
+
+**Do not misinterpret:** checking `owner_user_id` and `approved_at` from DB is not proof that those fields were originally issued by the trusted approval flow, and `inspect()` remains a data preflight. It is not a replacement for OAI_REST human approval, scoped MCP client session, database atomic leasing or the stored irreversible operation receipts. No Stage-2 methods are registered with the runtime.
+
+### Remaining release blockers after this checkpoint
+
+1. Persist **original before/after snapshots and actor/client provenance** through an authorized OAI_DB sandbox transaction (not caller-provided metadata).
+2. Route Apply/Rollback through the actual OAI_REST lifecycle and operation lock, consuming only the stored snapshots; remove reliance on booleans for authorization.
+3. Bind Verify, proof and receipt with rollback-safe, idempotent operation state transitions.
+4. Add independent two-process MySQL concurrency test and permission/tenant negative coverage.
+5. Reconcile additional testing from QA PR #5 without silently treating its gap-repro CI as a proof of security (the reproducer intentionally passes when gaps exist).
+6. Independently clear public licence/secret release gates and private Cloud contract parity before packaging or deployment.
+
