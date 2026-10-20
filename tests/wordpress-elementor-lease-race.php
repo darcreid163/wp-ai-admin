@@ -11,6 +11,7 @@ if (getenv('OAI_DISPOSABLE_WP_TEST') !== '1' ||
 require_once dirname(__DIR__).'/includes/class-oai-elementor-schema-save.php';
 require_once dirname(__DIR__).'/includes/class-oai-elementor-operation-binding.php';
 require_once dirname(__DIR__).'/includes/class-oai-elementor-operation-lease.php';
+require_once dirname(__DIR__).'/includes/class-oai-elementor-trusted-planner.php';
 wp_set_current_user(1);
 $phase = (string)getenv('OAI_LEASE_PHASE');
 function lease_expect($ok,$why) { if(!$ok) throw new RuntimeException($why); }
@@ -35,25 +36,31 @@ if ($phase==='seed') {
         lease_result(OAI_Elementor::save_document($post,$before),'Save baseline');
         $snapshot=lease_result(OAI_Elementor_Schema_Save::snapshot($post),'Snapshot');
         $change=lease_result(OAI_Elementor_Schema_Save::validate_replace($snapshot['tree'],$after,$snapshot['sha256']),'Prepare');
-        if ($mode==='rollback') lease_result(OAI_Elementor::save_document($post,$after),'Simulated previously applied state');
-        $op=lease_result(OAI_DB::insert([
-            'operation_id'=>'OAI-LEASE-CI-'.wp_generate_uuid4(),
-            'status'=>$mode==='rollback'?'applied':'approved',
-            'phase'=>$mode==='rollback'?'applied':'approved',
-            'type'=>'elementor_document_save',
-            'target'=>(string)$post,
-            'before_data'=>wp_json_encode($change['before']),
-            'after_data'=>wp_json_encode($change['after']),
-            'meta_data'=>wp_json_encode([
-                'site_id'=>OAI_Platform::site_id(),'post_id'=>$post,'owner_user_id'=>1,
-                'before_sha256'=>$change['before_sha256'],'after_sha256'=>$change['after_sha256']
-            ]),
-            'diff_data'=>'{}','risk'=>'medium',
-            'created_at'=>current_time('mysql',true),
-            'approved_at'=>current_time('mysql',true),
-            'applied_at'=>$mode==='rollback'?current_time('mysql',true):null,
-            'expires_at'=>gmdate('Y-m-d H:i:s',time()+600)
-        ]),'Create test-only approved row');
+
+        $planned=lease_result(OAI_Elementor_Trusted_Planner::prepare_human($post,$after),'Trusted pending sandbox');
+        $op=(int)$planned['id'];
+        lease_expect($planned['status']==='pending' && $planned['requires_human_approval']===true,
+            'Planner bypassed pending approval');
+        $before_approval=OAI_DB::get($op);
+        lease_expect(empty($before_approval['approved_at']), 'Planner set approved_at without human consent');
+        // Use the existing WP-admin nonce-gated approval action, not a
+        // handcrafted row with an approved status.
+        $req=new WP_REST_Request('POST','/okean-ai/v1/sandbox/'.$op.'/approve');
+        $req->set_url_params(['id'=>$op,'action'=>'approve']);
+        $req->set_header('X-WP-Nonce',wp_create_nonce('wp_rest'));
+        lease_result(OAI_REST::sandbox_action($req),'Real administrator approval');
+        $approved=OAI_DB::get($op);
+        lease_expect($approved['status']==='approved' && !empty($approved['approved_at']),
+            'Real approval did not persist');
+        if ($mode==='rollback') {
+            // No document Apply is executed here: the fixture explicitly
+            // simulates a prior trusted Apply so it can test rollback CAS.
+            lease_result(OAI_Elementor::save_document($post,$after),'Simulate previous apply');
+            OAI_DB::update($op,[
+                'status'=>'applied','phase'=>'applied',
+                'applied_at'=>current_time('mysql',true)
+            ]);
+        }
         update_option($marker,['post_id'=>$post,'operation_id'=>$op],false);
         echo "SEEDED\n";
     } catch(Throwable $e) {
