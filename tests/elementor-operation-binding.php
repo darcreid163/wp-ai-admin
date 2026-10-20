@@ -10,6 +10,16 @@ function is_wp_error($v){return $v instanceof WP_Error;}
 function absint($v){return abs((int)$v);}
 function wp_json_encode($v,$flags=0){return json_encode($v,$flags);}
 function get_option($key,$default=''){return $key==='oai_site_id'?'installation-ci':$default;}
+$GLOBALS['oai_actor']=7;
+$GLOBALS['oai_can_edit']=true;
+$GLOBALS['oai_can_admin']=true;
+$GLOBALS['oai_post_state']='draft';
+function get_current_user_id(){return $GLOBALS['oai_actor'];}
+function current_user_can($cap,...$args){
+    if($cap==='edit_post')return $GLOBALS['oai_can_edit'] && ($args[0]??0)===17;
+    return $cap==='manage_options' && $GLOBALS['oai_can_admin'];
+}
+function get_post($id){return $id===17?(object)['ID'=>17,'post_status'=>$GLOBALS['oai_post_state']]:null;}
 class OAI_Elementor {
     public static $tree=array(17=>[['id'=>'aabbccdd','elType'=>'widget','widgetType'=>'heading','settings'=>['title'=>'Before'],'elements'=>[]]]);
     public static function get_data($id){return self::$tree[$id] ?? new WP_Error('oai_no_post');}
@@ -34,13 +44,29 @@ $bh=hash('sha256',json_encode($before));
 $ah=hash('sha256',json_encode($after));
 OAI_DB::$row=[
     'type'=>'elementor_document_save','target'=>'17','status'=>'approved',
+    'operation_id'=>'OAI-TEST-12','approved_at'=>'2026-10-20 10:00:00',
     'before_data'=>json_encode($before),'after_data'=>json_encode($after),
-    'meta_data'=>json_encode(['site_id'=>'installation-ci','post_id'=>17,'before_sha256'=>$bh,'after_sha256'=>$ah]),
+    'meta_data'=>json_encode(['site_id'=>'installation-ci','post_id'=>17,'owner_user_id'=>7,'before_sha256'=>$bh,'after_sha256'=>$ah]),
 ];
 $binding='OAI_Elementor_Operation_Binding';
 $ok=$binding::inspect(12,'apply',17);
 ok(!is_wp_error($ok)&&$ok['preflight_only']===true&&$ok['prepared_change']['after']===$after,'approved binding failed');
 fail_code($binding::inspect(12,'rollback',17),'oai_binding_state');
+$GLOBALS['oai_actor']=8;
+fail_code($binding::inspect(12,'apply',17),'oai_binding_actor');
+$GLOBALS['oai_actor']=7;
+$GLOBALS['oai_can_edit']=false;
+fail_code($binding::inspect(12,'apply',17),'oai_binding_actor');
+$GLOBALS['oai_can_edit']=true;
+$GLOBALS['oai_can_admin']=false;
+fail_code($binding::inspect(12,'apply',17),'oai_binding_actor');
+$GLOBALS['oai_can_admin']=true;
+$GLOBALS['oai_post_state']='trash';
+fail_code($binding::inspect(12,'apply',17),'oai_binding_post');
+$GLOBALS['oai_post_state']='draft';
+OAI_DB::$row['approved_at']=null;
+fail_code($binding::inspect(12,'apply',17),'oai_binding_approval');
+OAI_DB::$row['approved_at']='2026-10-20 10:00:00';
 fail_code($binding::inspect(12,'apply',18),'oai_binding_target');
 fail_code($binding::inspect(13,'apply',17),'oai_binding_not_found');
 fail_code($binding::inspect(12,'approve',17),'oai_binding_arguments');
