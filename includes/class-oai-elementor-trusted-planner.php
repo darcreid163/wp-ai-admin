@@ -44,7 +44,8 @@ final class OAI_Elementor_Trusted_Planner {
             return new WP_Error('oai_planner_forbidden','Administrator edit permission required',array('status'=>403));
         }
         $post=get_post($post_id);
-        if (!$post || in_array((string)$post->post_status,array('trash','auto-draft'),true)) {
+        if (!$post || $post->post_type!=='page' ||
+            in_array((string)$post->post_status,array('trash','auto-draft','inherit'),true)) {
             return new WP_Error('oai_planner_post','Target post cannot be edited',array('status'=>404));
         }
         if (!self::required_classes()) {
