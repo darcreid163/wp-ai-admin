@@ -102,10 +102,10 @@ No `includes/` file was modified. No endpoint, merge, release or production acti
 ```text
 Role: independent reviewer
 Issue / PR: #3 / this Draft PR
-Base SHA / head SHA: 914081a / <filled by the PR>
+Base SHA / head SHA: 914081a / 9446b89 (+ doc-only follow-up commit)
 Files changed / files reviewed: tests/elementor-schema-save-gap-repro.php, docs/QA-ELEMENTOR-LIFECYCLE-AUDIT.md, .github/workflows/native-validate.yml / includes/class-oai-elementor-schema-save.php, includes/class-oai-elementor.php, PR #1 diff
 Change summary: isolated adversarial reproducer for the staged Elementor schema/save boundary, 9 documented gaps, 7 locked safe behaviours
-Tests executed: php tests/elementor-schema-save-gap-repro.php on PHP 8.3.35 and 8.4.26 (local), CI run URL recorded on the PR
+Tests executed: php tests/elementor-schema-save-gap-repro.php on PHP 8.3.35 and 8.4.26 (local); CI run 39403136088 — php 8.2/8.3/8.4 and wordpress-smoke all pass
 Unverified scenarios and risks: real WordPress/Elementor integration, cross-process concurrency, capability/owner enforcement, receipt/proof emission, failed-apply terminality
 Suggested next action: implement GAP-1 and GAP-2 first (payload binding and rollback target binding), then re-run this reproducer and invert those cases
 ```
