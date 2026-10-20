@@ -98,14 +98,32 @@ final class OAI_Elementor_Schema_Save {
         if ($approved !== true) {
             return new WP_Error('oai_approval_required', 'Rollback approval required', array('status'=>403));
         }
-        if (!is_array($change) || !isset($change['before'], $change['after'])) {
-            return new WP_Error('oai_invalid_change', 'Missing rollback snapshot', array('status'=>400));
+        if (!is_array($change) || !isset($change['before'], $change['after'], $change['before_sha256'], $change['after_sha256'])
+            || !is_array($change['before']) || !is_array($change['after'])
+            || !is_string($change['before_sha256']) || !is_string($change['after_sha256'])
+            || !preg_match('/^[a-f0-9]{64}$/D', $change['before_sha256'])
+            || !preg_match('/^[a-f0-9]{64}$/D', $change['after_sha256'])) {
+            return new WP_Error('oai_invalid_change', 'Missing or malformed rollback snapshots', array('status'=>400));
         }
+        if (!hash_equals(hash('sha256', wp_json_encode($change['before'])), $change['before_sha256']) ||
+            !hash_equals(hash('sha256', wp_json_encode($change['after'])), $change['after_sha256'])) {
+            return new WP_Error('oai_change_integrity', 'Rollback change hashes do not match', array('status'=>409));
+        }
+        // These hashes alone do NOT prove origin: the real executor must load
+        // immutable before/after snapshots by approved operation ID from OAI_DB.
         $snapshot = self::snapshot($post_id);
         if (is_wp_error($snapshot)) return $snapshot;
-        if ($snapshot['tree'] !== $change['after']) {
+        if ($snapshot['tree'] !== $change['after'] ||
+            !hash_equals($snapshot['sha256'], $change['after_sha256'])) {
             return new WP_Error('oai_rollback_conflict', 'Target changed since apply', array('status'=>409));
         }
-        return OAI_Elementor::save_document(absint($post_id), $change['before']);
+        $restored = OAI_Elementor::save_document(absint($post_id), $change['before']);
+        if (is_wp_error($restored)) return $restored;
+        $verified = self::verify($post_id, $change['before']);
+        if (is_wp_error($verified)) return $verified;
+        if (empty($verified['ok'])) {
+            return new WP_Error('oai_rollback_verify', 'Restored document differs from original snapshot', array('status'=>409));
+        }
+        return $restored;
     }
 }
