@@ -43,6 +43,28 @@ if ($phase==='seed') {
             'Planner bypassed pending approval');
         $before_approval=OAI_DB::get($op);
         lease_expect(empty($before_approval['approved_at']), 'Planner set approved_at without human consent');
+        lease_expect(OAI_Elementor_Trusted_Planner::verify_record($before_approval)===true,
+            'Server seal not valid on pending operation');
+        $premature=OAI_Elementor_Trusted_Planner::verify_approval_record($before_approval);
+        lease_expect(is_wp_error($premature) && $premature->get_error_code()==='oai_planner_approval',
+            'Pending row was accepted as approved');
+
+        // Neither a forged approval timestamp nor a tampered document can
+        // satisfy the independent human-audit and server-origin proof.
+        OAI_DB::update($op,['status'=>'approved','approved_at'=>current_time('mysql',true)]);
+        $forged=OAI_Elementor_Trusted_Planner::verify_approval_record(OAI_DB::get($op));
+        lease_expect(is_wp_error($forged) && $forged->get_error_code()==='oai_planner_approval',
+            'Forged approved status passed audit provenance');
+        OAI_DB::update($op,['status'=>'pending','approved_at'=>null]);
+
+        $original_after=(string)$before_approval['after_data'];
+        $modified=$after;
+        $modified[0]['settings']['title']='Unapproved replacement';
+        OAI_DB::update($op,['after_data'=>wp_json_encode($modified)]);
+        $tampered=OAI_Elementor_Trusted_Planner::verify_record(OAI_DB::get($op));
+        lease_expect(is_wp_error($tampered),'Modified after-image passed planner integrity');
+        OAI_DB::update($op,['after_data'=>$original_after]);
+
         // Use the existing WP-admin nonce-gated approval action, not a
         // handcrafted row with an approved status.
         $req=new WP_REST_Request('POST','/okean-ai/v1/sandbox/'.$op.'/approve');
@@ -52,6 +74,8 @@ if ($phase==='seed') {
         $approved=OAI_DB::get($op);
         lease_expect($approved['status']==='approved' && !empty($approved['approved_at']),
             'Real approval did not persist');
+        lease_expect(OAI_Elementor_Trusted_Planner::verify_approval_record($approved)===true,
+            'Approved operation missing matching owner audit event');
         if ($mode==='rollback') {
             // No document Apply is executed here: the fixture explicitly
             // simulates a prior trusted Apply so it can test rollback CAS.
