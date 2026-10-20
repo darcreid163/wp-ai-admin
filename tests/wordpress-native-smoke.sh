@@ -18,3 +18,22 @@ wp_test plugin status okean-ai-admin
 
 # Run fail-closed persisted operation and actor-binding tests on disposable MySQL/WP.
 OAI_DISPOSABLE_WP_TEST=1 wp_test eval-file "$PWD/tests/wordpress-elementor-operation-binding.php"
+
+# Two independent WP-CLI/PHP workers race for one approved operation. Only one
+# can claim it; neither worker is permitted to modify a live Elementor page.
+OAI_DISPOSABLE_WP_TEST=1 OAI_LEASE_PHASE=seed wp_test eval-file "$PWD/tests/wordpress-elementor-lease-race.php"
+(
+  OAI_DISPOSABLE_WP_TEST=1 OAI_LEASE_PHASE=claim wp_test eval-file "$PWD/tests/wordpress-elementor-lease-race.php" > "$WORK/claim-1.log" 2>&1
+) &
+LEASE_PID1=$!
+(
+  OAI_DISPOSABLE_WP_TEST=1 OAI_LEASE_PHASE=claim wp_test eval-file "$PWD/tests/wordpress-elementor-lease-race.php" > "$WORK/claim-2.log" 2>&1
+) &
+LEASE_PID2=$!
+wait "$LEASE_PID1" || { cat "$WORK/claim-1.log" "$WORK/claim-2.log"; exit 1; }
+wait "$LEASE_PID2" || { cat "$WORK/claim-1.log" "$WORK/claim-2.log"; exit 1; }
+cat "$WORK/claim-1.log" "$WORK/claim-2.log"
+CLAIMS=$(grep -hxc 'CLAIMED' "$WORK/claim-1.log" "$WORK/claim-2.log" | awk '{s+=$1} END {print s+0}')
+REFUSALS=$(grep -hxc 'REFUSED' "$WORK/claim-1.log" "$WORK/claim-2.log" | awk '{s+=$1} END {print s+0}')
+[[ "$CLAIMS" -eq 1 && "$REFUSALS" -eq 1 ]] || { echo "Wrong CAS result: claimed=$CLAIMS refused=$REFUSALS"; exit 1; }
+OAI_DISPOSABLE_WP_TEST=1 OAI_LEASE_PHASE=verify wp_test eval-file "$PWD/tests/wordpress-elementor-lease-race.php"
