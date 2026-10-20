@@ -101,6 +101,18 @@ function get_current_user_id() { return 1; }
 require dirname(__DIR__) . '/includes/class-oai-elementor.php';
 require dirname(__DIR__) . '/includes/class-oai-elementor-schema-save.php';
 
+function digest($tree)
+{
+    // PR #6 introduced a canonical document digest (associative key order is
+    // irrelevant, list order and scalar types are significant). On older builds
+    // only the raw JSON hash exists.
+    if (method_exists('OAI_Elementor_Schema_Save', 'tree_hash')) {
+        return OAI_Elementor_Schema_Save::tree_hash($tree);
+    }
+    return hash('sha256', wp_json_encode($tree));
+}
+
+
 /* ------------------------------------------------------------- fixtures --- */
 
 /**
@@ -184,7 +196,7 @@ seed_post(101, tree_with_html('<p>one</p>'));
 $one = tree_with_html('<p>one</p>');
 $two = tree_with_html('<p>two</p>');
 
-$prepared = OAI_Elementor_Schema_Save::validate_replace($one, $two, hash('sha256', wp_json_encode($one)));
+$prepared = OAI_Elementor_Schema_Save::validate_replace($one, $two, digest($one));
 good(is_array($prepared) && isset($prepared['after_sha256']), 'validate_replace prepares an ordered change');
 
 $result = OAI_Elementor_Schema_Save::apply_approved(101, $prepared, false);
@@ -195,17 +207,17 @@ $stale = array(
     'before' => $one,
     'after' => $two,
     'before_sha256' => str_repeat('0', 64),
-    'after_sha256' => hash('sha256', wp_json_encode($two)),
+    'after_sha256' => digest($two),
 );
 $result = OAI_Elementor_Schema_Save::apply_approved(101, $stale, true);
 good(in_array(error_code($result), array('oai_stale_target', 'oai_change_integrity', 'oai_invalid_change'), true), 'wrong snapshot hash is refused (stale or integrity)');
 good(stored_tree(101) === $one, 'stale apply did not touch the document');
 
-$result = OAI_Elementor_Schema_Save::validate_replace($one, $one, hash('sha256', wp_json_encode($one)));
+$result = OAI_Elementor_Schema_Save::validate_replace($one, $one, digest($one));
 good(error_code($result) === 'oai_noop', 'identical replacement is refused as a no-op');
 
 seed_post(102, tree_with_html('<p>one</p>'));
-$change = OAI_Elementor_Schema_Save::validate_replace($one, $two, hash('sha256', wp_json_encode($one)));
+$change = OAI_Elementor_Schema_Save::validate_replace($one, $two, digest($one));
 OAI_Elementor_Schema_Save::apply_approved(102, $change, true);
 $replay = OAI_Elementor_Schema_Save::apply_approved(102, $change, true);
 good(error_code($replay) === 'oai_stale_target', 'replaying an applied change is refused (no double write)');
@@ -216,7 +228,7 @@ echo "\n[2] staged gaps\n";
 
 seed_post(110, tree_with_html('<p>one</p>'));
 $evil = tree_with_html('<script>document.location="https://attacker.example"</script>');
-$approved = OAI_Elementor_Schema_Save::validate_replace($one, $two, hash('sha256', wp_json_encode($one)));
+$approved = OAI_Elementor_Schema_Save::validate_replace($one, $two, digest($one));
 $substituted = array(
     'before' => $approved['before'],
     'after' => $evil,
@@ -252,8 +264,8 @@ seed_post(118, tree_with_html('<p>two</p>'));
 $forged_bound = array(
     'before' => $evil,
     'after' => tree_with_html('<p>two</p>'),
-    'before_sha256' => hash('sha256', wp_json_encode($evil)),
-    'after_sha256' => hash('sha256', wp_json_encode(tree_with_html('<p>two</p>'))),
+    'before_sha256' => digest($evil),
+    'after_sha256' => digest(tree_with_html('<p>two</p>')),
 );
 $result = OAI_Elementor_Schema_Save::rollback_approved(118, $forged_bound, true);
 gap(
@@ -267,7 +279,7 @@ gap(
 
 seed_post(112, tree_with_html('<p>one</p>'));
 $GLOBALS['oai_cap_calls'] = 0;
-$change = OAI_Elementor_Schema_Save::validate_replace($one, $two, hash('sha256', wp_json_encode($one)));
+$change = OAI_Elementor_Schema_Save::validate_replace($one, $two, digest($one));
 $result = OAI_Elementor_Schema_Save::apply_approved(112, $change, true);
 gap(
     'GAP-3',
@@ -286,7 +298,7 @@ $GLOBALS['oai_meta_filter'] = static function ($value, $key) {
     }
     return $value;
 };
-$change = OAI_Elementor_Schema_Save::validate_replace($one, $two, hash('sha256', wp_json_encode($one)));
+$change = OAI_Elementor_Schema_Save::validate_replace($one, $two, digest($one));
 $result = OAI_Elementor_Schema_Save::apply_approved(113, $change, true);
 $GLOBALS['oai_meta_filter'] = null;
 $verify = OAI_Elementor_Schema_Save::verify(113, $two);
@@ -305,8 +317,8 @@ seed_post(114, $ordered_before);
 $change = array(
     'before' => $reordered_before,
     'after' => $two,
-    'before_sha256' => hash('sha256', wp_json_encode($ordered_before)),
-    'after_sha256' => hash('sha256', wp_json_encode($two)),
+    'before_sha256' => digest($ordered_before),
+    'after_sha256' => digest($two),
 );
 $result = OAI_Elementor_Schema_Save::apply_approved(114, $change, true);
 gap(
@@ -362,7 +374,7 @@ gap(
 /* --- GAP-9: check-then-act between two concurrent applies -------------- */
 
 seed_post(117, tree_with_html('<p>one</p>'));
-$change = OAI_Elementor_Schema_Save::validate_replace($one, $two, hash('sha256', wp_json_encode($one)));
+$change = OAI_Elementor_Schema_Save::validate_replace($one, $two, digest($one));
 $first = OAI_Elementor_Schema_Save::apply_approved(117, $change, true);
 $second = OAI_Elementor_Schema_Save::apply_approved(117, $change, true);
 gap(

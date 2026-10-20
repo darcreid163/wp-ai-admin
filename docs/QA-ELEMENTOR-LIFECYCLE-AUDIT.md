@@ -92,23 +92,25 @@ Everything marked "not covered" needs the `wordpress-smoke` path (MySQL 8, WP 7.
 
 ## 5a. Cross-check against Draft PR #6 (Issue #2, ChatGPT)
 
-The same reproducer was executed against `agent/chatgpt/2-elementor-operation-binding` at head `8deab87`:
+The same reproducer was executed against two heads of `agent/chatgpt/2-elementor-operation-binding`. The reproducer now uses `OAI_Elementor_Schema_Save::tree_hash()` when present, because PR #6 replaced the raw JSON hash with a canonical document digest.
 
-| # | on `main` (`914081a`) | on PR #6 (`8deab87`) |
-|---|---|---|
-| GAP-1 payload not bound | reproduced | **closed** — `after_sha256` rehashed and compared |
-| GAP-2a unbound rollback | reproduced | **closed** — hashes now required |
-| GAP-2b forged self-consistent pair | reproduced | **open** — integrity without provenance |
-| GAP-3 boolean authorization | reproduced | open |
-| GAP-4 no post-save compare | reproduced | **closed** — readback verify after save |
-| GAP-5 key-order false conflict | reproduced | open |
-| GAP-6 unscoped snapshot/schema | reproduced | open |
-| GAP-7 no receipt/proof/id | reproduced | open |
-| GAP-8 malformed SHA warning | reproduced | **closed** — typed validation |
-| GAP-9 check-then-act race | reproduced | open |
-| safe assertions (7) | all pass | all pass |
+| # | on `main` (`914081a`) | PR #6 `8deab87` | PR #6 `9731fda` |
+|---|---|---|---|
+| GAP-1 payload not bound | reproduced | **closed** | closed |
+| GAP-2a unbound rollback | reproduced | **closed** | closed |
+| GAP-2b forged self-consistent pair | reproduced | open | **open** — integrity without provenance |
+| GAP-3 boolean authorization | reproduced | open | open |
+| GAP-4 no post-save compare | reproduced | **closed** | closed |
+| GAP-5 key-order false conflict | reproduced | open | **closed** — canonical digest |
+| GAP-6 unscoped snapshot/schema | reproduced | open | open |
+| GAP-7 no receipt/proof/id | reproduced | open | open |
+| GAP-8 malformed SHA warning | reproduced | **closed** | closed |
+| GAP-9 check-then-act race | reproduced | open | open |
+| safe assertions (7) | all pass | all pass | all pass |
 
-Reproduced on `main`: 10/10. Reproduced on PR #6: 6/10. The reproducer asserts only *safe* behaviour fatally, so it stays green on both builds and the table is the deliverable.
+Reproduced: `main` 10/10, `8deab87` 6/10, `9731fda` 5/10. The reproducer asserts only *safe* behaviour fatally, so it stays green on every build and the table is the deliverable.
+
+Note on GAP-5: `tree_hash()` sorts associative keys recursively while preserving list order, which is the correct contract for Elementor trees. The canonical digest also means old raw-JSON digests are no longer accepted — any operator-side tooling that computed hashes itself must use `tree_hash()`.
 
 ## 6. Files in this branch
 - `tests/elementor-schema-save-gap-repro.php` — isolated reproducer (new).
