@@ -47,8 +47,8 @@ function ok($v,$why){if(!$v)throw new RuntimeException($why);}
 function fail_code($v,$code){ok(is_wp_error($v)&&$v->get_error_code()===$code,'Expected '.$code.' got '.(is_wp_error($v)?$v->get_error_code():gettype($v)));}
 $before=OAI_Elementor::$tree[17];
 $after=$before;$after[0]['settings']['title']='After';
-$bh=hash('sha256',json_encode($before));
-$ah=hash('sha256',json_encode($after));
+$bh=OAI_Elementor_Schema_Save::tree_hash($before);
+$ah=OAI_Elementor_Schema_Save::tree_hash($after);
 OAI_DB::$row=[
     'type'=>'elementor_document_save','target'=>'17','status'=>'approved',
     'operation_id'=>'OAI-TEST-12','approved_at'=>'2026-10-20 10:00:00',
