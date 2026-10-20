@@ -58,3 +58,22 @@ OAI_DISPOSABLE_WP_TEST=1 wp_test eval-file "$PWD/tests/wordpress-elementor-docum
 
 # Safety regression: after-write verification faults + receipt crash windows.
 OAI_DISPOSABLE_WP_TEST=1 wp_test eval-file "$PWD/tests/wordpress-elementor-failure-windows.php"
+
+# Negative cross-process interleaving regression (Issue #13).
+# A PASS proves unsafe external-editor lost-update is REPRODUCIBLE and remains
+# a blocker. Never interpret this as a safety/production release gate passing.
+OAI_DISPOSABLE_WP_TEST=1 OAI_F3_PHASE=seed wp_test eval-file "$PWD/tests/wordpress-elementor-external-editor-race.php"
+(
+  OAI_DISPOSABLE_WP_TEST=1 OAI_F3_PHASE=ai wp_test eval-file "$PWD/tests/wordpress-elementor-external-editor-race.php" > "$WORK/f3-ai.log" 2>&1
+) &
+F3_AI_PID=$!
+(
+  OAI_DISPOSABLE_WP_TEST=1 OAI_F3_PHASE=editor wp_test eval-file "$PWD/tests/wordpress-elementor-external-editor-race.php" > "$WORK/f3-editor.log" 2>&1
+) &
+F3_EDITOR_PID=$!
+wait "$F3_AI_PID" || { cat "$WORK/f3-ai.log" "$WORK/f3-editor.log"; exit 1; }
+wait "$F3_EDITOR_PID" || { cat "$WORK/f3-ai.log" "$WORK/f3-editor.log"; exit 1; }
+cat "$WORK/f3-ai.log" "$WORK/f3-editor.log"
+grep -q 'F3_UNSAFE_RACE_REPRODUCED' "$WORK/f3-ai.log"
+grep -q 'F3_EDITOR_SAVED' "$WORK/f3-editor.log"
+OAI_DISPOSABLE_WP_TEST=1 OAI_F3_PHASE=verify wp_test eval-file "$PWD/tests/wordpress-elementor-external-editor-race.php"
