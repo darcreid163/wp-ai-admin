@@ -24,6 +24,8 @@ function window_ok($result,$message) {
     if (is_wp_error($result)) throw new RuntimeException($message.': '.$result->get_error_code());
     return $result;
 }
+// Execution is opt-in only for isolated CI; never enabled in production.
+define('OAI_ELEMENTOR_DOCUMENT_STAGED_TEST',true);
 wp_set_current_user(1);
 global $wpdb;
 $post=window_ok(wp_insert_post(['post_type'=>'page','post_status'=>'draft',
