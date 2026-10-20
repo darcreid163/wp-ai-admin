@@ -15,3 +15,6 @@ wp_test plugin activate okean-ai-admin
 wp_test eval 'if(!class_exists("OAI_Elementor")) { throw new Exception("Missing Elementor adapter"); } echo "PASS: Elementor adapter loaded\\n";'
 wp_test eval 'if(!class_exists("OAI_MCP")) { throw new Exception("Missing MCP"); } echo "PASS: MCP loaded\\n";'
 wp_test plugin status okean-ai-admin
+
+# Run fail-closed persisted operation and actor-binding tests on disposable MySQL/WP.
+OAI_DISPOSABLE_WP_TEST=1 wp_test eval-file "$PWD/tests/wordpress-elementor-operation-binding.php"
