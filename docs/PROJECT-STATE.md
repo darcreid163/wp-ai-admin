@@ -151,3 +151,25 @@ This stage is implemented in **Draft PR #6** only. It is **unregistered** in the
 - Baseline passing CI for the human approval + claim + forged-status/snapshot checks: [run #39414555968](https://github.com/darcreid163/wp-ai-admin/actions/runs/39414555968), **5/5 Passed**. A follow-up test extends owner/site/expiry/nonce tamper checks on later commit and must have its own successful run before counting as verified.
 
 **Do not merge or deploy:** Keep Draft #6 open pending independent DeepSeek adversarial review, real complete operation lifecycle, cross-tenant contract and release reconciliation.
+
+## 2026-10-20 Stage 5/6 — real executor, receipt proof and crash classification
+
+Draft PR #6 now contains the unregistered `OAI_Elementor_Document_Executor` and the read-only `OAI_Elementor_Document_Recovery` plus their isolated real WordPress/MySQL fixtures.
+
+- The Stage-5 executor accepts **only** operation ID + post ID + WP human nonce; it delegates to the existing owner/site/real-approval-audit and atomic CAS claim, loads sealed DB-only before/after images, saves via native Elementor, reads both Elementor API and `_elementor_data` directly from MySQL, double-verifies, and writes the existing OAI_Proof and OAI_Receipts records. It supports DB-only rollback and rejects replays/stale editor changes.
+- Fixed a shared Proof cache issue: a proof of Apply is no longer reused as proof of Rollback. Test now requires `proof.phase=rollback` and a different execution hash.
+- Stage-6 recovery is **read-only**, rejects wrong actor/target/untrusted origin, and distinguishes state before, after and other for interrupted Apply/Rollback; it never retries, rolls back, or changes DB status.
+- Executable CI **5/5 passed** at [run #39416941946](https://github.com/darcreid163/wp-ai-admin/actions/runs/39416941946) on commit `7cea5380`: PHP 8.2/8.3/8.4 and pinned/latest WordPress+Elementor+WooCommerce+Yoast. Earlier fully integrated executor test [run #39416251069](https://github.com/darcreid163/wp-ai-admin/actions/runs/39416251069) also passed 5/5; both WP job logs attest the end-to-end lifecycle.
+- The subsequent test-only commit `96daa9fb` adds a **post-Apply human-edit rollback conflict** and refusal without nonce; its CI must be verified separately before acceptance. Do not reuse earlier CI proof for it.
+- Actual integration into OAI_REST Sandbox/Approval route, public MCP tool dispatch, AI client identity, usage ledger, recovery authorization and private Cloud contract remains NOT IMPLEMENTED. No runtime bootstrap registration has been made.
+
+### Reconciliation with independently advanced public main
+
+While this branch was developed, independent PR #5 (DeepSeek adversarial gap reproducer / CI) and PR #9 (publication gates / GPL attribution) were merged into public Native `main`, now `c2673156c71d40526a552399a7c48a474709c210`. Their changes include `.github/workflows/native-validate.yml` and security boundary checks. This feature branch diverges from main. **Do not merge PR #6 or overwrite workflow files until both agents reconcile the branch against current main and preserve all CI/security tests.** The QA reproducer intentionally demonstrated previous vulnerabilities; whether its current assertions should remain proof-of-gap or become regression gates must be independently reviewed.
+
+### Next P0
+
+1. DeepSeek independent audit of `class-oai-elementor-document-executor.php`, proof caching phase, persistent MySQL verification, stale rollback and recovery classification; publish exact reproducer/PR.
+2. Run on current base **including** merged publication and adversarial QA gates; preserve, never weaken, all existing checks.
+3. Add safe owner-authorized recovery/resumption design for interrupted CAS without blind replay and test failed writes/after-save crash boundaries.
+4. Wire full typed execution through existing Native sandbox lifecycle **only after** the above QA gates and explicit maintainer approval; require private Cloud tenant/client identity contract before MCP tool exposure.
