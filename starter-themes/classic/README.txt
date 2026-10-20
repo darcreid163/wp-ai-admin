@@ -1,7 +1,5 @@
-AI Admin Starter Theme — Classic
+WP AI Admin Starter Theme — Classic
 
-This starter is an independent implementation inspired by the safe draft-theme architecture used by WPVibe.
-It is not a copy of WPVibe source.
+Independent starter theme implementation for safe draft and preview workflows.
 
 Авторские права Андриянов Н.Г.
-
