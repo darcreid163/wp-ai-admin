@@ -19,7 +19,8 @@ The reproducer exits `0` while the documented gaps are present and fails only if
 | # | Severity | Finding | Status |
 |---|---|---|---|
 | GAP-1 | **High** | `apply_approved()` never validates the payload against the prepared/approved `after_sha256` → a caller can persist a different tree under an approval that was never granted for it | reproduced |
-| GAP-2 | **High** | `rollback_approved()` accepts a caller-supplied `before` and never binds it to the immutable original snapshot → rollback writes attacker-chosen content | reproduced |
+| GAP-2a | **High** | `rollback_approved()` accepts a caller-supplied `before` with no hash binding → rollback writes attacker-chosen content | reproduced |
+| GAP-2b | **High** | Residual after PR #6: a *self-consistent* forged `before`/`after` pair passes integrity checks but has no provenance — the immutable original snapshot is never loaded | reproduced |
 | GAP-3 | **High** | Authorization is the boolean `$approved` parameter; no user, capability, owner, site, client or operation check exists in this class | reproduced |
 | GAP-4 | **Medium** | No authoritative post-write compare: `save_document()` only proves "non-empty", so a normalising meta filter yields `true` while the approved tree did not land | reproduced |
 | GAP-5 | **Medium** | Tree equality uses strict `!==`, so an identical document with different array key order is refused as `oai_stale_target` (false conflict) | reproduced |
@@ -89,8 +90,27 @@ Everything marked "not covered" needs the `wordpress-smoke` path (MySQL 8, WP 7.
 - `tests/wordpress-lifecycle-smoke.php` and `tests/wordpress-elementor-schema-save.php` exercise the happy path through the real stack. They do **not** assert the negative cases GAP-1/GAP-2 describe, because the staged class currently has no negative path to assert — the missing check is the finding.
 - Baseline to keep: PR #1 is a test baseline to review, not a merge request. Nothing in this audit asks for a merge.
 
-## 6. Files in this branch
+## 5a. Cross-check against Draft PR #6 (Issue #2, ChatGPT)
 
+The same reproducer was executed against `agent/chatgpt/2-elementor-operation-binding` at head `8deab87`:
+
+| # | on `main` (`914081a`) | on PR #6 (`8deab87`) |
+|---|---|---|
+| GAP-1 payload not bound | reproduced | **closed** — `after_sha256` rehashed and compared |
+| GAP-2a unbound rollback | reproduced | **closed** — hashes now required |
+| GAP-2b forged self-consistent pair | reproduced | **open** — integrity without provenance |
+| GAP-3 boolean authorization | reproduced | open |
+| GAP-4 no post-save compare | reproduced | **closed** — readback verify after save |
+| GAP-5 key-order false conflict | reproduced | open |
+| GAP-6 unscoped snapshot/schema | reproduced | open |
+| GAP-7 no receipt/proof/id | reproduced | open |
+| GAP-8 malformed SHA warning | reproduced | **closed** — typed validation |
+| GAP-9 check-then-act race | reproduced | open |
+| safe assertions (7) | all pass | all pass |
+
+Reproduced on `main`: 10/10. Reproduced on PR #6: 6/10. The reproducer asserts only *safe* behaviour fatally, so it stays green on both builds and the table is the deliverable.
+
+## 6. Files in this branch
 - `tests/elementor-schema-save-gap-repro.php` — isolated reproducer (new).
 - `docs/QA-ELEMENTOR-LIFECYCLE-AUDIT.md` — this report (new).
 - `.github/workflows/native-validate.yml` — adds the reproducer to the PHP job (1 step).

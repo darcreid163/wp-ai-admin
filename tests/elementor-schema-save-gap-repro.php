@@ -198,7 +198,7 @@ $stale = array(
     'after_sha256' => hash('sha256', wp_json_encode($two)),
 );
 $result = OAI_Elementor_Schema_Save::apply_approved(101, $stale, true);
-good(error_code($result) === 'oai_stale_target', 'wrong snapshot hash is refused as stale');
+good(in_array(error_code($result), array('oai_stale_target', 'oai_change_integrity', 'oai_invalid_change'), true), 'wrong snapshot hash is refused (stale or integrity)');
 good(stored_tree(101) === $one, 'stale apply did not touch the document');
 
 $result = OAI_Elementor_Schema_Save::validate_replace($one, $one, hash('sha256', wp_json_encode($one)));
@@ -240,10 +240,27 @@ $forged_rollback = array(
 );
 $result = OAI_Elementor_Schema_Save::rollback_approved(111, $forged_rollback, true);
 gap(
-    'GAP-2',
+    'GAP-2a',
     'HIGH',
     'rollback_approved accepts a caller-supplied "before" instead of the stored original snapshot',
     $result === true && stored_tree(111) === $evil
+);
+
+// Residual case: PR #6 adds self-consistent hash validation, which proves
+// integrity but not provenance. A caller can still forge a complete pair.
+seed_post(118, tree_with_html('<p>two</p>'));
+$forged_bound = array(
+    'before' => $evil,
+    'after' => tree_with_html('<p>two</p>'),
+    'before_sha256' => hash('sha256', wp_json_encode($evil)),
+    'after_sha256' => hash('sha256', wp_json_encode(tree_with_html('<p>two</p>'))),
+);
+$result = OAI_Elementor_Schema_Save::rollback_approved(118, $forged_bound, true);
+gap(
+    'GAP-2b',
+    'HIGH',
+    'self-consistent forged rollback pair still restores attacker content (integrity without provenance)',
+    $result === true && stored_tree(118) === $evil
 );
 
 /* --- GAP-3: authorization is a caller-supplied boolean ------------------ */
@@ -289,13 +306,14 @@ $change = array(
     'before' => $reordered_before,
     'after' => $two,
     'before_sha256' => hash('sha256', wp_json_encode($ordered_before)),
+    'after_sha256' => hash('sha256', wp_json_encode($two)),
 );
 $result = OAI_Elementor_Schema_Save::apply_approved(114, $change, true);
 gap(
     'GAP-5',
     'MEDIUM',
-    'identical document with different array key order is refused as oai_stale_target (false conflict)',
-    error_code($result) === 'oai_stale_target'
+    'identical document with different array key order is refused as a false conflict (stale or integrity)',
+    in_array(error_code($result), array('oai_stale_target', 'oai_change_integrity'), true)
 );
 
 /* --- GAP-6: read paths are not capability or ownership scoped ---------- */
