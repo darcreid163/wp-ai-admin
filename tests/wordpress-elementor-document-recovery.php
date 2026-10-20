@@ -17,6 +17,8 @@ function recovery_ok($value,$msg){
     return $value;
 }
 function recovery_assert($yes,$msg){if(!$yes)throw new RuntimeException($msg);}
+// Execution is opt-in only for isolated CI; never enabled in production.
+define('OAI_ELEMENTOR_DOCUMENT_STAGED_TEST',true);
 wp_set_current_user(1);
 global $wpdb;
 $post=recovery_ok(wp_insert_post(['post_type'=>'page','post_status'=>'draft',
