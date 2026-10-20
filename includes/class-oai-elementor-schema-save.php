@@ -9,6 +9,31 @@
 if (!defined('ABSPATH')) exit;
 
 final class OAI_Elementor_Schema_Save {
+    /**
+     * Stable Elementor document digest: associative JSON object key order is
+     * irrelevant, while array order (page sections/widgets) and value types
+     * are significant. The original tree is never rewritten.
+     */
+    private static function canonical($value) {
+        if (!is_array($value)) return $value;
+        if (array_is_list($value)) {
+            return array_map(array(__CLASS__, 'canonical'), $value);
+        }
+        $out = array();
+        foreach ($value as $key=>$child) $out[$key] = self::canonical($child);
+        ksort($out, SORT_STRING);
+        return $out;
+    }
+
+    public static function tree_hash($tree) {
+        return hash('sha256', wp_json_encode(self::canonical($tree), JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION));
+    }
+
+    public static function same_tree($left, $right) {
+        return is_array($left) && is_array($right) &&
+            hash_equals(self::tree_hash($left), self::tree_hash($right));
+    }
+
     public static function schema($widget_type) {
         if (!class_exists('OAI_Elementor')) {
             return new WP_Error('oai_elementor_missing', 'Elementor adapter is unavailable', array('status'=>503));
@@ -23,14 +48,14 @@ final class OAI_Elementor_Schema_Save {
         $tree = OAI_Elementor::get_data($id);
         if (is_wp_error($tree)) return $tree;
         return array('post_id'=>$id, 'tree'=>$tree,
-            'sha256'=>hash('sha256', wp_json_encode($tree)));
+            'sha256'=>self::tree_hash($tree));
     }
 
     public static function validate_replace($before, $after, $expected_sha256) {
         if (!is_array($before) || !is_array($after) || !array_is_list($after)) {
             return new WP_Error('oai_invalid_tree', 'A list of Elementor nodes is required', array('status'=>422));
         }
-        $hash = hash('sha256', wp_json_encode($before));
+        $hash = self::tree_hash($before);
         if (!is_string($expected_sha256) ||
             !preg_match('/^[a-f0-9]{64}$/D', $expected_sha256) ||
             !hash_equals($hash, $expected_sha256)) {
@@ -38,11 +63,11 @@ final class OAI_Elementor_Schema_Save {
         }
         $decoded = OAI_Elementor::decode_create_nodes($after);
         if (is_wp_error($decoded)) return $decoded;
-        if ($decoded === $before) {
+        if (self::same_tree($decoded, $before)) {
             return new WP_Error('oai_noop', 'No content change', array('status'=>409));
         }
         return array('before'=>$before, 'after'=>$decoded, 'before_sha256'=>$hash,
-            'after_sha256'=>hash('sha256', wp_json_encode($decoded)));
+            'after_sha256'=>self::tree_hash($decoded));
     }
 
     /**
@@ -61,8 +86,8 @@ final class OAI_Elementor_Schema_Save {
             || !preg_match('/^[a-f0-9]{64}$/D', $change['after_sha256'])) {
             return new WP_Error('oai_invalid_change', 'Missing or malformed prepared change', array('status'=>400));
         }
-        $rehash_before = hash('sha256', wp_json_encode($change['before']));
-        $rehash_after = hash('sha256', wp_json_encode($change['after']));
+        $rehash_before = self::tree_hash($change['before']);
+        $rehash_after = self::tree_hash($change['after']);
         if (!hash_equals($rehash_before, $change['before_sha256']) ||
             !hash_equals($rehash_after, $change['after_sha256'])) {
             return new WP_Error('oai_change_integrity', 'Prepared change hash mismatch', array('status'=>409));
@@ -70,7 +95,7 @@ final class OAI_Elementor_Schema_Save {
         $snapshot = self::snapshot($post_id);
         if (is_wp_error($snapshot)) return $snapshot;
         if (!hash_equals($snapshot['sha256'], (string)$change['before_sha256']) ||
-            $snapshot['tree'] !== $change['before']) {
+            !self::same_tree($snapshot['tree'], $change['before'])) {
             return new WP_Error('oai_stale_target', 'Elementor document changed before apply', array('status'=>409));
         }
         $saved = OAI_Elementor::save_document(absint($post_id), $change['after']);
@@ -87,10 +112,10 @@ final class OAI_Elementor_Schema_Save {
     public static function verify($post_id, $expected_tree) {
         $snapshot = self::snapshot($post_id);
         if (is_wp_error($snapshot)) return $snapshot;
-        $match = is_array($expected_tree) && $snapshot['tree'] === $expected_tree;
+        $match = self::same_tree($snapshot['tree'], $expected_tree);
         return array('ok'=>$match, 'post_id'=>$snapshot['post_id'],
             'actual_sha256'=>$snapshot['sha256'],
-            'expected_sha256'=>is_array($expected_tree) ? hash('sha256', wp_json_encode($expected_tree)) : null);
+            'expected_sha256'=>is_array($expected_tree) ? self::tree_hash($expected_tree) : null);
     }
 
     /** Rollback requires a separately approved rollback and no intervening edits. */
@@ -105,15 +130,15 @@ final class OAI_Elementor_Schema_Save {
             || !preg_match('/^[a-f0-9]{64}$/D', $change['after_sha256'])) {
             return new WP_Error('oai_invalid_change', 'Missing or malformed rollback snapshots', array('status'=>400));
         }
-        if (!hash_equals(hash('sha256', wp_json_encode($change['before'])), $change['before_sha256']) ||
-            !hash_equals(hash('sha256', wp_json_encode($change['after'])), $change['after_sha256'])) {
+        if (!hash_equals(self::tree_hash($change['before']), $change['before_sha256']) ||
+            !hash_equals(self::tree_hash($change['after']), $change['after_sha256'])) {
             return new WP_Error('oai_change_integrity', 'Rollback change hashes do not match', array('status'=>409));
         }
         // These hashes alone do NOT prove origin: the real executor must load
         // immutable before/after snapshots by approved operation ID from OAI_DB.
         $snapshot = self::snapshot($post_id);
         if (is_wp_error($snapshot)) return $snapshot;
-        if ($snapshot['tree'] !== $change['after'] ||
+        if (!self::same_tree($snapshot['tree'], $change['after']) ||
             !hash_equals($snapshot['sha256'], $change['after_sha256'])) {
             return new WP_Error('oai_rollback_conflict', 'Target changed since apply', array('status'=>409));
         }
