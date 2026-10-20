@@ -52,3 +52,6 @@ done
 
 # Stage-5 internal-only executor acceptance. Never run on a production host.
 OAI_DISPOSABLE_WP_TEST=1 wp_test eval-file "$PWD/tests/wordpress-elementor-document-executor.php"
+
+# Stage-6 read-only recovery diagnosis of interrupted document operations.
+OAI_DISPOSABLE_WP_TEST=1 wp_test eval-file "$PWD/tests/wordpress-elementor-document-recovery.php"
