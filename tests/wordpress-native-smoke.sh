@@ -21,3 +21,5 @@ wp_test eval-file "$PWD/tests/wordpress-mcp-onboarding.php"
 wp_test eval-file "$PWD/tests/wordpress-admin-navigation.php"
 # Mutate only disposable WP options and verify the entire guarded lifecycle.
 OAI_DISPOSABLE_WP_TEST=1 wp_test eval-file "$PWD/tests/wordpress-lifecycle-smoke.php"
+# Exercise real Elementor control schema, document save, conflict checks and rollback.
+OAI_DISPOSABLE_WP_TEST=1 wp_test eval-file "$PWD/tests/wordpress-elementor-schema-save.php"
