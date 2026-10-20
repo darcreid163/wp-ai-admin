@@ -49,3 +49,6 @@ for LEASE_MODE in apply rollback; do
   [[ "$CLAIMS" -eq 1 && "$REFUSALS" -eq 1 ]] || { echo "Wrong $LEASE_MODE CAS result: claimed=$CLAIMS refused=$REFUSALS"; exit 1; }
   OAI_DISPOSABLE_WP_TEST=1 OAI_LEASE_MODE="$LEASE_MODE" OAI_LEASE_PHASE=verify wp_test eval-file "$PWD/tests/wordpress-elementor-lease-race.php"
 done
+
+# Stage-5 internal-only executor acceptance. Never run on a production host.
+OAI_DISPOSABLE_WP_TEST=1 wp_test eval-file "$PWD/tests/wordpress-elementor-document-executor.php"
