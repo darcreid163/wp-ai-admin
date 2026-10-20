@@ -54,8 +54,18 @@ final class OAI_Elementor_Schema_Save {
         if ($approved !== true) {
             return new WP_Error('oai_approval_required', 'Human approval is required', array('status'=>403));
         }
-        if (!is_array($change) || !isset($change['before'], $change['after'], $change['before_sha256'])) {
-            return new WP_Error('oai_invalid_change', 'Missing prepared change', array('status'=>400));
+        if (!is_array($change) || !isset($change['before'], $change['after'], $change['before_sha256'], $change['after_sha256'])
+            || !is_array($change['before']) || !is_array($change['after'])
+            || !is_string($change['before_sha256']) || !is_string($change['after_sha256'])
+            || !preg_match('/^[a-f0-9]{64}$/D', $change['before_sha256'])
+            || !preg_match('/^[a-f0-9]{64}$/D', $change['after_sha256'])) {
+            return new WP_Error('oai_invalid_change', 'Missing or malformed prepared change', array('status'=>400));
+        }
+        $rehash_before = hash('sha256', wp_json_encode($change['before']));
+        $rehash_after = hash('sha256', wp_json_encode($change['after']));
+        if (!hash_equals($rehash_before, $change['before_sha256']) ||
+            !hash_equals($rehash_after, $change['after_sha256'])) {
+            return new WP_Error('oai_change_integrity', 'Prepared change hash mismatch', array('status'=>409));
         }
         $snapshot = self::snapshot($post_id);
         if (is_wp_error($snapshot)) return $snapshot;
@@ -63,7 +73,14 @@ final class OAI_Elementor_Schema_Save {
             $snapshot['tree'] !== $change['before']) {
             return new WP_Error('oai_stale_target', 'Elementor document changed before apply', array('status'=>409));
         }
-        return OAI_Elementor::save_document(absint($post_id), $change['after']);
+        $saved = OAI_Elementor::save_document(absint($post_id), $change['after']);
+        if (is_wp_error($saved)) return $saved;
+        $verified = self::verify($post_id, $change['after']);
+        if (is_wp_error($verified)) return $verified;
+        if (empty($verified['ok'])) {
+            return new WP_Error('oai_save_verify', 'Saved document differs from approved snapshot', array('status'=>409));
+        }
+        return $saved;
     }
 
     /** Full comparison, not only the existence of valid Elementor JSON. */
