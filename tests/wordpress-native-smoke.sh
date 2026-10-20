@@ -55,3 +55,6 @@ OAI_DISPOSABLE_WP_TEST=1 wp_test eval-file "$PWD/tests/wordpress-elementor-docum
 
 # Stage-6 read-only recovery diagnosis of interrupted document operations.
 OAI_DISPOSABLE_WP_TEST=1 wp_test eval-file "$PWD/tests/wordpress-elementor-document-recovery.php"
+
+# Safety regression: after-write verification faults + receipt crash windows.
+OAI_DISPOSABLE_WP_TEST=1 wp_test eval-file "$PWD/tests/wordpress-elementor-failure-windows.php"
