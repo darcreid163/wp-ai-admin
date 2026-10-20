@@ -57,6 +57,19 @@ final class OAI_Elementor_Document_Executor {
             return new WP_Error('oai_document_conflict','Document changed after atomic claim',array('status'=>409));
         }
 
+        // A second pre-write guard honors an active human WordPress edit lock
+        // and compares Elementor API to independent MySQL persistence. This is
+        // NOT an atomic lock against arbitrary other editors (Issue #13).
+        if (!class_exists('OAI_Elementor_External_Edit_Guard')) {
+            self::fail($id,$action,'external_guard_unavailable');
+            return new WP_Error('oai_external_guard_unavailable',
+                'Document edit-safety guard is unavailable',array('status'=>503));
+        }
+        $guard=OAI_Elementor_External_Edit_Guard::inspect($post_id,$expected_live);
+        if (is_wp_error($guard)) {
+            self::fail($id,$action,'external_edit_preflight_refused');
+            return $guard;
+        }
         // From this point Elementor may already commit the document, even if
         // a later PHP exception, timeout or verification error occurs.
         // NEVER report "apply_failed" as if no write happened in this window.
