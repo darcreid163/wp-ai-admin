@@ -137,3 +137,17 @@ Release meaning: **GAP-5 canonicalization tested in staging; GAP-9 concurrency m
 ## Repository synchronization checkpoint
 
 On 2026-10-20 the public Native main branch advanced to commit `37d54f931878f93f26fd5ea48add74bafd6c8523` through the **independent merge** of collaboration-only PR #4. The Elementor integration Draft PR #6 remains unmerged and is based on its earlier native main ancestor; the runtime changes are isolated to its feature branch. Do not confuse a passing feature-branch CI run with a release merge. Before eventual integration, reconcile with the current main branch and rerun checks on the exact merged candidate SHA.
+
+## 2026-10-20 Stage 4 — trusted pending operations and actual human approval audit
+
+This stage is implemented in **Draft PR #6** only. It is **unregistered** in the Native bootstrap, REST and MCP: no production behavior or tool exposure changes.
+
+- `OAI_Elementor_Trusted_Planner::prepare_human(post_id, proposed_tree)` derives the before-image from a live Elementor document, current WP administrator, site identity, operation ID, nonce-independent creation time and expiry. It saves a `pending` operation; it **never approves, applies or accepts client-supplied owner/site/before snapshots**.
+- A versioned HMAC seal over the planned operation's immutable identity, before/after hashes, owner/site, timestamps and channel protects against unauthorized database edits detectable without the server's WordPress auth salt. Losing/rotating the WP secret invalidates pending records (fail closed); a compromised WP runtime or its secrets is outside this guarantee.
+- `verify_record()` checks the seal plus stored before/after trees and origin. `verify_approval_record()` requires an **existing WP-admin approval audit event by the same planning administrator** matching the operation, not just a manually set `approved_at`. Staged CAS claims now require both checks.
+- Disposable WP/MySQL tests create the real `pending` operation, submit it through existing nonce-guarded `OAI_REST::sandbox_action('approve')`, and then race Apply and Rollback claim transitions. A second concurrent process must fail; no Elementor document write is performed by either claim.
+- Negative tests intentionally forge status, original/target snapshots, post owner and site, expiry and missing REST nonce; they must all be refused.
+- Trusted approval evidence is an audit proof for this staged human path, **not** authorization to expose a public write API. The actual Apply/Verify/Proof/Receipt executor remains unimplemented for `elementor_document_save`, as do crash recovery, cloud owner/client identity and final rollback restoration from immutable DB-only before-images.
+- Baseline passing CI for the human approval + claim + forged-status/snapshot checks: [run #39414555968](https://github.com/darcreid163/wp-ai-admin/actions/runs/39414555968), **5/5 Passed**. A follow-up test extends owner/site/expiry/nonce tamper checks on later commit and must have its own successful run before counting as verified.
+
+**Do not merge or deploy:** Keep Draft #6 open pending independent DeepSeek adversarial review, real complete operation lifecycle, cross-tenant contract and release reconciliation.
