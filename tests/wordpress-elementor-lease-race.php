@@ -65,10 +65,35 @@ if ($phase==='seed') {
         lease_expect(is_wp_error($tampered),'Modified after-image passed planner integrity');
         OAI_DB::update($op,['after_data'=>$original_after]);
 
+        // Forge an owner or another tenant inside meta_data; the signed
+        // planner envelope must fail regardless of DB row approval state.
+        $original_meta=(string)$before_approval['meta_data'];
+        $forged_meta=json_decode($original_meta,true);
+        $forged_meta['owner_user_id']=999;
+        OAI_DB::update($op,['meta_data'=>wp_json_encode($forged_meta)]);
+        lease_expect(is_wp_error(OAI_Elementor_Trusted_Planner::verify_record(OAI_DB::get($op))),
+            'Forged document owner passed planner signature');
+        $forged_meta['owner_user_id']=1;
+        $forged_meta['site_id']='another-installation';
+        OAI_DB::update($op,['meta_data'=>wp_json_encode($forged_meta)]);
+        lease_expect(is_wp_error(OAI_Elementor_Trusted_Planner::verify_record(OAI_DB::get($op))),
+            'Forged tenant identity passed planner signature');
+        OAI_DB::update($op,['meta_data'=>$original_meta]);
+
+        $old_expiry=(string)$before_approval['expires_at'];
+        OAI_DB::update($op,['expires_at'=>gmdate('Y-m-d H:i:s',time()+7200)]);
+        lease_expect(is_wp_error(OAI_Elementor_Trusted_Planner::verify_record(OAI_DB::get($op))),
+            'Tampered operation expiry passed planner signature');
+        OAI_DB::update($op,['expires_at'=>$old_expiry]);
+
         // Use the existing WP-admin nonce-gated approval action, not a
         // handcrafted row with an approved status.
         $req=new WP_REST_Request('POST','/okean-ai/v1/sandbox/'.$op.'/approve');
         $req->set_url_params(['id'=>$op,'action'=>'approve']);
+        $bad=OAI_REST::sandbox_action($req);
+        lease_expect(is_wp_error($bad) && $bad->get_error_code()==='oai_human_approval_required',
+            'Administrator approval accepted without REST nonce');
+        lease_expect(OAI_DB::get($op)['status']==='pending','Nonce failure changed operation status');
         $req->set_header('X-WP-Nonce',wp_create_nonce('wp_rest'));
         lease_result(OAI_REST::sandbox_action($req),'Real administrator approval');
         $approved=OAI_DB::get($op);
