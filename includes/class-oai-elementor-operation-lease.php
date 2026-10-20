@@ -42,6 +42,14 @@ final class OAI_Elementor_Operation_Lease {
 
     /** One statement wins; a replay/race is a failure, never a second write. */
     private static function atomic_claim($checked) {
+        // Refuse synthetic/forged approved rows: only a server-derived pending
+        // operation may transition through the existing real approval route.
+        if (!class_exists('OAI_Elementor_Trusted_Planner')) {
+            return new WP_Error('oai_lease_planner_missing','Trusted operation planner unavailable',array('status'=>503));
+        }
+        $persisted=OAI_DB::get(absint($checked['id'] ?? 0));
+        $provenance=OAI_Elementor_Trusted_Planner::verify_record($persisted);
+        if (is_wp_error($provenance)) return $provenance;
         global $wpdb;
         if (!isset($wpdb) || !is_object($wpdb) || !method_exists($wpdb, 'prepare') ||
             !method_exists($wpdb, 'query') || !class_exists('OAI_DB')) {
