@@ -35,6 +35,8 @@ jobs:
         run: php tests/option-normalization.php
       - name: Control plane entitlements
         run: php tests/control-plane-entitlements.php
+      - name: Expanded read-only CLI commands (Tier B)
+        run: php tests/cli-expanded-commands.php
 
   wordpress-smoke:
     runs-on: ubuntu-latest
