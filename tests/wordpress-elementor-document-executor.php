@@ -12,6 +12,7 @@ foreach ([
     'class-oai-elementor-operation-binding.php',
     'class-oai-elementor-trusted-planner.php',
     'class-oai-elementor-operation-lease.php',
+    'class-oai-elementor-external-edit-guard.php',
     'class-oai-elementor-document-executor.php'
 ] as $file) require_once dirname(__DIR__).'/includes/'.$file;
 wp_set_current_user(1);
