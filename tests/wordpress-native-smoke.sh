@@ -15,3 +15,7 @@ wp_test plugin activate okean-ai-admin
 wp_test eval 'if(!class_exists("OAI_Elementor")) { throw new Exception("Missing Elementor adapter"); } echo "PASS: Elementor adapter loaded\\n";'
 wp_test eval 'if(!class_exists("OAI_MCP")) { throw new Exception("Missing MCP"); } echo "PASS: MCP loaded\\n";'
 wp_test plugin status okean-ai-admin
+# Exercise the actual native administrator consent/OAuth retention against disposable WP.
+wp_test eval-file "$PWD/tests/wordpress-mcp-onboarding.php"
+# Exercise the actual WordPress admin menu and central connection links.
+wp_test eval-file "$PWD/tests/wordpress-admin-navigation.php"
