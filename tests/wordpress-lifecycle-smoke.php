@@ -54,6 +54,10 @@ try {
     oai_smoke_ok(OAI_AI_Lifecycle_Control::perform($id, 'apply', 'disposable-lifecycle-ci', 1), 'Apply');
     oai_smoke_assert((int)get_option('thumbnail_size_w') === 151, 'Approved apply did not persist');
     oai_smoke_assert(!empty(OAI_Verify::operation($id)['verified']), 'Apply verification failed');
+    $appliedReceipt = OAI_Receipts::build($id);
+    oai_smoke_assert(is_array($appliedReceipt) && $appliedReceipt['status']==='applied',
+        'Applied operation receipt/status missing');
+    oai_smoke_assert(!empty($appliedReceipt['receipt']), 'Apply receipt not persisted');
     update_option('thumbnail_size_w', 154, false);
     $conflict = OAI_AI_Lifecycle_Control::perform($id, 'rollback', 'disposable-lifecycle-ci', 1);
     oai_smoke_assert(is_wp_error($conflict), 'Rollback overwrote later edit');
@@ -63,6 +67,10 @@ try {
     oai_smoke_ok(OAI_AI_Lifecycle_Control::perform($id, 'rollback', 'disposable-lifecycle-ci', 1), 'Rollback');
     oai_smoke_assert((int)get_option('thumbnail_size_w') === 150, 'Rollback did not restore snapshot');
     oai_smoke_assert(!empty(OAI_Verify::operation($id)['verified']), 'Rollback verification failed');
+    $rolledReceipt = OAI_Receipts::build($id);
+    oai_smoke_assert(is_array($rolledReceipt) && $rolledReceipt['status']==='rolled_back',
+        'Rollback receipt/status missing');
+    oai_smoke_assert(!empty($rolledReceipt['receipt']), 'Rollback receipt not persisted');
     echo "PASS: real WP sandbox, owner approval, stale apply, verify, rollback conflicts and restoration\n";
 } finally {
     OAI_AI_Lifecycle_Control::disable(1);
