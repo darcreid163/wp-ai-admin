@@ -57,23 +57,42 @@ final class OAI_Elementor_Document_Executor {
             return new WP_Error('oai_document_conflict','Document changed after atomic claim',array('status'=>409));
         }
 
+        // From this point Elementor may already commit the document, even if
+        // a later PHP exception, timeout or verification error occurs.
+        // NEVER report "apply_failed" as if no write happened in this window.
+        $write_attempted=false;
         try {
+            $write_attempted=true;
             $saved=OAI_Elementor::save_document($post_id,$target_tree);
             if (is_wp_error($saved)) {
-                self::fail($id,$action,'save_failed');
-                return $saved;
+                self::uncertain($id,$action,'save_result_uncertain');
+                return new WP_Error('oai_document_write_uncertain',
+                    'Elementor reported a save error; document state requires inspection',array('status'=>500));
+            }
+            // Record the intended persisted image immediately after the API
+            // returned success, before any independent verification/proof.
+            // A crash here remains "applying/rolling_back" and is diagnosed,
+            // not retried automatically.
+            if ($action==='apply' && !self::transition($id,'applying',array(
+                'applied_data'=>wp_json_encode($after,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES|JSON_PRESERVE_ZERO_FRACTION),
+                'applied_at'=>current_time('mysql',true)))) {
+                self::uncertain($id,$action,'applied_marker_missing');
+                return new WP_Error('oai_document_write_uncertain',
+                    'Document may be saved but its application marker is missing',array('status'=>500));
             }
             $verification=OAI_Verify::operation($id,$target_tree,
                 $action==='apply'?'after':'rollback',true);
             if (is_wp_error($verification) || empty($verification['verified'])) {
-                self::fail($id,$action,'verify_failed');
-                return new WP_Error('oai_document_verify','Saved Elementor document failed independent verification',array('status'=>409));
+                self::uncertain($id,$action,'verify_failed');
+                return new WP_Error('oai_document_verify',
+                    'Document write needs manual reconciliation after verification failure',array('status'=>409));
             }
             $second=OAI_Verify::operation($id,$target_tree,
                 $action==='apply'?'after':'rollback',true);
             if (is_wp_error($second) || empty($second['verified'])) {
-                self::fail($id,$action,'verify_unstable');
-                return new WP_Error('oai_document_verify','Second document verification failed',array('status'=>409));
+                self::uncertain($id,$action,'verify_unstable');
+                return new WP_Error('oai_document_verify',
+                    'Document second verification failed; manual reconciliation required',array('status'=>409));
             }
             $final=$action==='apply'?'applied':'rolled_back';
             $fields=$action==='apply'
@@ -83,7 +102,9 @@ final class OAI_Elementor_Document_Executor {
                 : array('status'=>'rolled_back','phase'=>'rolled_back',
                     'rolled_back_at'=>current_time('mysql',true));
             if (!self::transition($id,$expected_status,$fields)) {
-                return new WP_Error('oai_document_finalize','Could not atomically record verified operation outcome',array('status'=>500));
+                self::uncertain($id,$action,'finalization_failed');
+                return new WP_Error('oai_document_finalize',
+                    'Saved document was verified but final state persistence requires review',array('status'=>500));
             }
             $proof=OAI_Proof::make($id);
             if (!is_array($proof)||empty($proof['verified'])) {
@@ -105,9 +126,29 @@ final class OAI_Elementor_Document_Executor {
             return array('id'=>$id,'post_id'=>$post_id,'status'=>$final,
                 'verified'=>true,'receipt'=>$stored['receipt'],'proof'=>$stored['proof']);
         } catch (Throwable $e) {
-            self::fail($id,$action,'exception');
-            return new WP_Error('oai_document_exception','Document execution failed; review operation state',array('status'=>500));
+            if ($write_attempted) self::uncertain($id,$action,'exception_after_write_attempt');
+            else self::fail($id,$action,'exception_before_write');
+            return new WP_Error('oai_document_exception',
+                'Document execution was interrupted; inspect actual state before any repair',array('status'=>500));
         }
+    }
+
+    /**
+     * Fail-safe incident record for anything that can have written the page.
+     * Keep the CAS state unchanged and retain applied_data/applied_at when
+     * already captured; do not fabricate rollback safety or a success proof.
+     */
+    private static function uncertain($id,$action,$reason) {
+        $state=$action==='apply'?'applying':'rolling_back';
+        $row=OAI_DB::get($id);
+        if (!is_array($row) || ($row['status']??'')!==$state) return;
+        OAI_Receipts::store($id,array(
+            'event'=>'document_write_uncertain','status'=>$state,
+            'reason'=>$reason,'recovery'=>'manual_review',
+            'verified'=>false,'at'=>gmdate('c')
+        ),null);
+        if (class_exists('OAI_Audit')) OAI_Audit::log('document_write_uncertain',
+            $row,array('action'=>$action,'reason'=>$reason));
     }
 
     private static function transition($id,$from,$fields) {
