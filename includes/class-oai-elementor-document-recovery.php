@@ -26,8 +26,23 @@ final class OAI_Elementor_Document_Recovery {
         $proof=OAI_Elementor_Trusted_Planner::verify_approval_record($row);
         if (is_wp_error($proof)) return $proof;
         $status=(string)$row['status'];
-        if (!in_array($status,array('applying','rolling_back','apply_failed','rollback_failed'),true)) {
-            return new WP_Error('oai_recovery_state','Operation is not in an ambiguous execution state',array('status'=>409));
+        $terminal=in_array($status,array('applied','rolled_back'),true);
+        $receipt=json_decode((string)($row['receipt']??''),true);
+        $execution_proof=json_decode((string)($row['proof']??''),true);
+        $phase=$status==='rolled_back'?'rollback':'after';
+        $expected_event=$status==='rolled_back'?'rollback':'apply';
+        $missing_evidence=$terminal && (
+            !is_array($receipt) || ($receipt['event']??'')!==$expected_event ||
+            ($receipt['status']??'')!==$status ||
+            !is_array($execution_proof) ||
+            empty($execution_proof['verified']) ||
+            ($execution_proof['phase']??'')!==$phase
+        );
+        if (!$missing_evidence &&
+            !in_array($status,array('applying','rolling_back','apply_failed','rollback_failed'),true)) {
+            return new WP_Error('oai_recovery_state',
+                'Operation has no unresolved execution state or missing terminal evidence',
+                array('status'=>409));
         }
         $before=json_decode((string)$row['before_data'],true);
         $after=json_decode((string)$row['after_data'],true);
@@ -35,7 +50,7 @@ final class OAI_Elementor_Document_Recovery {
         if (is_wp_error($live)) return $live;
         $is_before=OAI_Elementor_Schema_Save::same_tree($live['tree'],$before);
         $is_after=OAI_Elementor_Schema_Save::same_tree($live['tree'],$after);
-        $action=in_array($status,array('applying','apply_failed'),true)?'apply':'rollback';
+        $action=in_array($status,array('applying','apply_failed','applied'),true)?'apply':'rollback';
         $expected_source=$action==='apply'?'before':'after';
         $result_state=$is_before?'before':($is_after?'after':'other');
         $assessment=$result_state==='other'?'concurrent_or_partial_edit':
@@ -51,6 +66,8 @@ final class OAI_Elementor_Document_Recovery {
             'after_sha256'=>OAI_Elementor_Schema_Save::tree_hash($after),
             'read_only'=>true,'automatic_retry_allowed'=>false,
             'automatic_rollback_allowed'=>false,
+            'terminal_receipt_or_proof_missing'=>$missing_evidence,
+            'evidence_incident'=>$missing_evidence?'missing_or_incorrect_terminal_receipt_or_proof':null,
             'human_reconciliation_required'=>true
         );
     }
