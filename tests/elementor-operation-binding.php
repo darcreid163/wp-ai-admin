@@ -52,6 +52,7 @@ $ah=hash('sha256',json_encode($after));
 OAI_DB::$row=[
     'type'=>'elementor_document_save','target'=>'17','status'=>'approved',
     'operation_id'=>'OAI-TEST-12','approved_at'=>'2026-10-20 10:00:00',
+    'expires_at'=>gmdate('Y-m-d H:i:s',time()+3600),'applied_at'=>null,
     'before_data'=>json_encode($before),'after_data'=>json_encode($after),
     'meta_data'=>json_encode(['site_id'=>'installation-ci','post_id'=>17,'owner_user_id'=>7,'before_sha256'=>$bh,'after_sha256'=>$ah]),
 ];
@@ -81,6 +82,9 @@ $GLOBALS['oai_post_state']='draft';
 OAI_DB::$row['approved_at']=null;
 fail_code($binding::inspect(12,'apply',17),'oai_binding_approval');
 OAI_DB::$row['approved_at']='2026-10-20 10:00:00';
+OAI_DB::$row['expires_at']=gmdate('Y-m-d H:i:s',time()-300);
+fail_code($binding::inspect(12,'apply',17),'oai_binding_expired');
+OAI_DB::$row['expires_at']=gmdate('Y-m-d H:i:s',time()+3600);
 fail_code($binding::inspect(12,'apply',18),'oai_binding_target');
 fail_code($binding::inspect(13,'apply',17),'oai_binding_not_found');
 fail_code($binding::inspect(12,'approve',17),'oai_binding_arguments');
@@ -107,6 +111,8 @@ OAI_DB::$row['before_data']=json_encode($before);
 OAI_Elementor::$tree[17][0]['settings']['title']='Someone else edited';
 fail_code($binding::inspect(12,'apply',17),'oai_binding_stale');
 OAI_Elementor::$tree[17]=$after;OAI_DB::$row['status']='applied';
+fail_code($binding::inspect(12,'rollback',17),'oai_binding_unapplied');
+OAI_DB::$row['applied_at']='2026-10-20 10:05:00';
 $ready=$binding::inspect(12,'rollback',17);
 ok(!is_wp_error($ready)&&$ready['action']==='rollback','rollback preflight failed');
 OAI_Elementor::$tree[17]=$before;
