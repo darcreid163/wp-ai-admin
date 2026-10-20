@@ -13,6 +13,7 @@ foreach ([
     'class-oai-elementor-operation-binding.php',
     'class-oai-elementor-trusted-planner.php',
     'class-oai-elementor-operation-lease.php',
+    'class-oai-elementor-external-edit-guard.php',
     'class-oai-elementor-document-executor.php',
     'class-oai-elementor-document-recovery.php'
 ] as $file) require_once dirname(__DIR__).'/includes/'.$file;
