@@ -5,6 +5,8 @@
  * Version: 2.1.14
  * Author: Андриянов Н.Г.
  * Copyright: Андриянов Н.Г.
+ * License: GPL-2.0-or-later
+ * License URI: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
  */
 if (!defined('ABSPATH')) exit;
 define('OAI_VERSION','2.1.14');
