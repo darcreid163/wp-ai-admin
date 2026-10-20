@@ -6,6 +6,25 @@
  */
 if (!defined('ABSPATH')) exit;
 final class OAI_Elementor_Document_Executor {
+    /**
+     * Fail closed until external Elementor editor concurrency is resolved
+     * (Issue #13). Even an accidental plugin bootstrap inclusion must not
+     * make this staged executor a callable production writer.
+     */
+    private static function disposable_execution_only() {
+        $home=function_exists('home_url') ? (string)home_url() : '';
+        $is_disposable=(strpos($home,'localhost')!==false ||
+            preg_match('~^https?://[^/]+\\.test(?::[0-9]+)?(?:/|$)~i',$home)===1);
+        if (!defined('OAI_ELEMENTOR_DOCUMENT_STAGED_TEST') ||
+            OAI_ELEMENTOR_DOCUMENT_STAGED_TEST!==true ||
+            getenv('OAI_DISPOSABLE_WP_TEST')!=='1' || !$is_disposable) {
+            return new WP_Error('oai_document_staged_only',
+                'Full Elementor document writes remain disabled until the external-editor race is resolved',
+                array('status'=>503));
+        }
+        return true;
+    }
+
     public static function apply_human($id,$post_id,$nonce) {
         return self::execute('apply',$id,$post_id,$nonce);
     }
@@ -14,6 +33,8 @@ final class OAI_Elementor_Document_Executor {
     }
 
     private static function execute($action,$id,$post_id,$nonce) {
+        $gate=self::disposable_execution_only();
+        if (is_wp_error($gate)) return $gate;
         if (!class_exists('OAI_Elementor_Operation_Lease') ||
             !class_exists('OAI_Elementor_Trusted_Planner') ||
             !class_exists('OAI_Verify') || !class_exists('OAI_Receipts') ||
@@ -153,6 +174,8 @@ final class OAI_Elementor_Document_Executor {
      * An approved before/after image and applied marker must already exist.
      */
     public static function reconcile_applied_human($id,$post_id,$nonce) {
+        $gate=self::disposable_execution_only();
+        if (is_wp_error($gate)) return $gate;
         $id=absint($id);$post_id=absint($post_id);
         if (!$id || !$post_id || !is_string($nonce) || $nonce==='' ||
             !wp_verify_nonce($nonce,'wp_rest') ||
