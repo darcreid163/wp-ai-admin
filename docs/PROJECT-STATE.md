@@ -112,3 +112,24 @@ Primary integration Draft PR #6 (newest executable commit `26e51a89`) now also i
 5. Reconcile additional testing from QA PR #5 without silently treating its gap-repro CI as a proof of security (the reproducer intentionally passes when gaps exist).
 6. Independently clear public licence/secret release gates and private Cloud contract parity before packaging or deployment.
 
+
+## 2026-10-20 Stage 3 — canonical snapshots and atomic MySQL claims
+
+Integration branch: `agent/chatgpt/2-elementor-operation-binding`, Draft [PR #6](https://github.com/darcreid163/wp-ai-admin/pull/6).
+
+- **GAP-5 staged remediation:** Elementor documents are compared using canonical associative-key ordering while retaining widget/section list order, scalar types and original persisted structure. The digest is computed from normalized JSON, not a lossy element rewrite.
+- **GAP-9 staged mitigation:** `OAI_Elementor_Operation_Lease` provides an **unregistered** internal SQL compare-and-swap operation claim. A status transition succeeds only when operation id, type, status, site-bound post, operation identifier, both exact DB snapshots and metadata fingerprint still match. Expired apply and rollback without an applied timestamp cannot claim. Duplicate, race or changed database row fails without a document save.
+- Claim has separate WordPress-human nonce/capability and scoped AI lifecycle context variants. These are **entry checks**, not full human consent implementation and are not wired to the existing REST lifecycle.
+- **Two independent WP-CLI processes** race for one test operation; exactly one receives `CLAIMED`, the other `REFUSED`, and the Elementor draft is unchanged by either claim. The same test runs for **Apply and Rollback**, each with fresh test operations, then removes all test content.
+- Integration test matrix: WordPress 7.0.6 + Elementor 4.3.3 + WooCommerce 11.1.2 + Yoast 28.6; and latest publicly downloadable plugin versions. All three PHP variants (8.2–8.4) also pass.
+- Evidence: [GitHub Actions run #39411147203](https://github.com/darcreid163/wp-ai-admin/actions/runs/39411147203), 5/5 Passed. Both real-WP jobs independently logged `CLAIMED`, `REFUSED`, `VERIFIED` twice (apply and rollback).
+- **Important:** no staged Stage-3 class is loaded into production plugin bootstrap and **no MCP/REST write capability was added**.
+
+### Mandatory next P0 integration gates
+
+1. Construct the operation in the **trusted** Native sandbox planner, with server-derived before/after snapshots, immutable owner/client/site provenance, and a persisted real human approval event. Today's standalone staging tests synthesize approved DB rows; this is not proof of provenance.
+2. Bind the CAS claim to the actual OAI_REST lifecycle state machine. The eventual executor must consume the DB-stored before/after snapshot **only after** validated approval and atomic claim, not a caller-supplied boolean or document. Deliver status transitions, failures, Apply/Verify/Proof/Receipt and conflict-safe Rollback.
+3. Perform independent security review of the atomic DB claim (including after-claim crashes, expiry races, forged metadata, SQL compare semantics, lost claims, idempotency and multi-site boundaries).
+4. Integrate QA findings from [PR #5](https://github.com/darcreid163/wp-ai-admin/pull/5) and obtain owner approval before merge, release, or any installed-site update.
+
+Release meaning: **GAP-5 canonicalization tested in staging; GAP-9 concurrency mechanism tested in staging only. GAP-2/3/7 and full executor authorization remain OPEN.**
