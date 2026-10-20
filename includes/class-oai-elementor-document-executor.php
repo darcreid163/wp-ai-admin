@@ -134,6 +134,94 @@ final class OAI_Elementor_Document_Executor {
     }
 
     /**
+     * Explicit administrator reconciliation of an already attempted Apply.
+     * It NEVER performs an Elementor write or automatic rollback.
+     * This method is not registered as a REST/MCP endpoint.
+     * An approved before/after image and applied marker must already exist.
+     */
+    public static function reconcile_applied_human($id,$post_id,$nonce) {
+        $id=absint($id);$post_id=absint($post_id);
+        if (!$id || !$post_id || !is_string($nonce) || $nonce==='' ||
+            !wp_verify_nonce($nonce,'wp_rest') ||
+            !current_user_can('manage_options') ||
+            !current_user_can('edit_post',$post_id)) {
+            return new WP_Error('oai_reconcile_permission',
+                'Administrator nonce and document permissions are required',array('status'=>403));
+        }
+        if (!class_exists('OAI_Elementor_Trusted_Planner') ||
+            !class_exists('OAI_Elementor_Schema_Save') ||
+            !class_exists('OAI_Verify') || !class_exists('OAI_Receipts') ||
+            !class_exists('OAI_Proof')) {
+            return new WP_Error('oai_reconcile_unavailable',
+                'Reconciliation dependencies are unavailable',array('status'=>503));
+        }
+        $row=OAI_DB::get($id);
+        if (!is_array($row) ||
+            ($row['type']??'')!=='elementor_document_save' ||
+            (string)($row['target']??'')!==(string)$post_id ||
+            ($row['status']??'')!=='applying' ||
+            empty($row['applied_at']) || empty($row['applied_data'])) {
+            return new WP_Error('oai_reconcile_state',
+                'Operation has no recorded write or requires a different recovery procedure',
+                array('status'=>409));
+        }
+        $meta=json_decode((string)$row['meta_data'],true);
+        if (!is_array($meta) ||
+            absint($meta['owner_user_id']??0)!==get_current_user_id()) {
+            return new WP_Error('oai_reconcile_owner','Operation owner mismatch',array('status'=>403));
+        }
+        $origin=OAI_Elementor_Trusted_Planner::verify_approval_record($row);
+        if (is_wp_error($origin)) return $origin;
+        $expected=json_decode((string)$row['after_data'],true);
+        $applied=json_decode((string)$row['applied_data'],true);
+        if (!is_array($expected)||!is_array($applied) ||
+            !OAI_Elementor_Schema_Save::same_tree($applied,$expected)) {
+            return new WP_Error('oai_reconcile_snapshot',
+                'Persisted applied image differs from trusted proposal',array('status'=>409));
+        }
+        // Independent WordPress API + persistent MySQL verification, twice.
+        // No automatic reapply if another editor modified the page.
+        for ($pass=0;$pass<2;$pass++) {
+            $verify=OAI_Verify::operation($id,$expected,'after',true);
+            if (is_wp_error($verify) || empty($verify['verified'])) {
+                return new WP_Error('oai_reconcile_conflict',
+                    'Current document does not match approved applied image',
+                    array('status'=>409));
+            }
+        }
+        if (!self::transition($id,'applying',array('status'=>'applied','phase'=>'applied'))) {
+            return new WP_Error('oai_reconcile_race',
+                'Operation changed during reconciliation; no write attempted',array('status'=>409));
+        }
+        $proof=OAI_Proof::make($id);
+        if (!is_array($proof) || empty($proof['verified'])) {
+            return new WP_Error('oai_reconcile_proof',
+                'Applied state confirmed but proof needs operator inspection',
+                array('status'=>500));
+        }
+        $receipt=array(
+            'event'=>'apply','status'=>'applied',
+            'reconciled_from'=>'incomplete_execution',
+            'at'=>gmdate('c'),
+            'document_sha256'=>OAI_Elementor_Schema_Save::tree_hash($expected)
+        );
+        OAI_Receipts::store($id,$receipt,$proof);
+        $stored=OAI_Receipts::build($id);
+        if (!is_array($stored) || empty($stored['verified']) ||
+            ($stored['receipt']['reconciled_from']??'')!=='incomplete_execution') {
+            return new WP_Error('oai_reconcile_receipt',
+                'Applied state persisted but proof or receipt requires inspection',
+                array('status'=>500));
+        }
+        if (class_exists('OAI_Audit')) OAI_Audit::log('applied_reconciled',
+            OAI_DB::get($id),array('human_reconciliation'=>true,
+                'document_sha256'=>$receipt['document_sha256']));
+        return array('id'=>$id,'post_id'=>$post_id,'status'=>'applied',
+            'reconciled'=>true,'write_executed'=>false,
+            'verified'=>true,'receipt'=>$stored['receipt'],'proof'=>$stored['proof']);
+    }
+
+    /**
      * Fail-safe incident record for anything that can have written the page.
      * Keep the CAS state unchanged and retain applied_data/applied_at when
      * already captured; do not fabricate rollback safety or a success proof.
