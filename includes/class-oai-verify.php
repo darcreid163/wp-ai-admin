@@ -28,6 +28,44 @@ class OAI_Verify {
    'checked_at'=>current_time('mysql',true)
   );
 
+  // Staged full-document type. Compare Elementor's document API with a
+  // separate WordPress persisted _elementor_data read. Never trust only a
+  // successful save() return or the operation's requested after-image.
+  if($row['type']==='elementor_document_save'){
+   $post_id=absint($row['target']);
+   if(!$post_id || !is_array($expected) ||
+      !class_exists('OAI_Elementor_Schema_Save')){
+    $result['checks'][]=array('name'=>'elementor_preconditions','ok'=>false);
+    return $result;
+   }
+   $snapshot=OAI_Elementor_Schema_Save::snapshot($post_id);
+   if(is_wp_error($snapshot)){
+    $result['checks'][]=array('name'=>'document_read','ok'=>false,'message'=>$snapshot->get_error_code());
+    return $result;
+   }
+   // Bypass WP meta object cache for an independent persistence check.
+   global $wpdb;
+   if(!isset($wpdb) || !isset($wpdb->postmeta)){
+    $result['checks'][]=array('name'=>'meta_store','ok'=>false);
+    return $result;
+   }
+   $raw=$wpdb->get_var($wpdb->prepare(
+     "SELECT meta_value FROM {$wpdb->postmeta} WHERE post_id=%d AND meta_key=%s ORDER BY meta_id DESC LIMIT 1",
+     $post_id,'_elementor_data'
+   ));
+   $persisted=is_string($raw)?json_decode($raw,true):null;
+   $result['current']=$snapshot['tree'];
+   $api_match=OAI_Elementor_Schema_Save::same_tree($snapshot['tree'],$expected);
+   $db_match=is_array($persisted)&&OAI_Elementor_Schema_Save::same_tree($persisted,$expected);
+   $consistent=is_array($persisted)&&OAI_Elementor_Schema_Save::same_tree($snapshot['tree'],$persisted);
+   $result['checks'][]=array('name'=>'elementor_document_api','ok'=>$api_match);
+   $result['checks'][]=array('name'=>'elementor_persistent_meta','ok'=>$db_match);
+   $result['checks'][]=array('name'=>'document_api_database_consistency','ok'=>$consistent);
+   $result['verification_source']='elementor_api_plus_mysql';
+   $result['verified']=$api_match&&$db_match&&$consistent;
+   return $result;
+  }
+
   if($row['type']==='elementor_page_create'){
    $page_id=absint($meta['preview_page_id']??0);
    if(!$page_id){
