@@ -30,6 +30,13 @@ class OAI_Elementor {
         return $nodes;
     }
 }
+class OAI_AI_Lifecycle_Control {
+    public static $context = null;
+    public static function request_authorized($id, $action) {
+        return is_array(self::$context) && self::$context['id']===$id &&
+            self::$context['action']===$action && self::$context['issued'] === true;
+    }
+}
 class OAI_DB {
     public static $row;
     public static function get($id){return $id===12?self::$row:null;}
@@ -51,6 +58,13 @@ OAI_DB::$row=[
 $binding='OAI_Elementor_Operation_Binding';
 $ok=$binding::inspect(12,'apply',17);
 ok(!is_wp_error($ok)&&$ok['preflight_only']===true&&$ok['prepared_change']['after']===$after,'approved binding failed');
+fail_code($binding::inspect_ai_authorized(12,'apply',17),'oai_binding_authorization');
+OAI_AI_Lifecycle_Control::$context=['id'=>12,'action'=>'apply','issued'=>true];
+$authorized=$binding::inspect_ai_authorized(12,'apply',17);
+ok(!is_wp_error($authorized) && $authorized['preflight_only']===true,'scoped context preflight failed');
+fail_code($binding::inspect_ai_authorized(12,'rollback',17),'oai_binding_authorization');
+fail_code($binding::inspect_ai_authorized(13,'apply',17),'oai_binding_authorization');
+OAI_AI_Lifecycle_Control::$context=null;
 fail_code($binding::inspect(12,'rollback',17),'oai_binding_state');
 $GLOBALS['oai_actor']=8;
 fail_code($binding::inspect(12,'apply',17),'oai_binding_actor');
