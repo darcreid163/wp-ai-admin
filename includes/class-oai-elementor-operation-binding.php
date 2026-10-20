@@ -47,6 +47,25 @@ final class OAI_Elementor_Operation_Binding {
             || absint($meta['post_id'] ?? 0) !== $post) {
             return new WP_Error('oai_binding_site', 'Operation does not belong to this installation/post', array('status'=>403));
         }
+        // A persisted operation identifies its owner, but this alone is not an
+        // authorization grant. Never accept actor identity from method arguments.
+        // The live WP session must be that owner and must have both administrator
+        // privileges and edit rights on the exact target document.
+        $owner = absint($meta['owner_user_id'] ?? 0);
+        $actor = get_current_user_id();
+        if (!$owner || !$actor || $actor !== $owner ||
+            !current_user_can('manage_options') || !current_user_can('edit_post', $post)) {
+            return new WP_Error('oai_binding_actor', 'Operation owner or edit capability mismatch', array('status'=>403));
+        }
+        $target = get_post($post);
+        if (!$target || in_array((string)$target->post_status, array('trash', 'auto-draft'), true)) {
+            return new WP_Error('oai_binding_post', 'Target document is unavailable', array('status'=>404));
+        }
+        // Approval must be a persisted lifecycle transition, not a caller flag.
+        // A check here cannot replace OAI_REST::sandbox_action authorization.
+        if (empty($row['operation_id']) || empty($row['approved_at'])) {
+            return new WP_Error('oai_binding_approval', 'Operation has no persisted approval record', array('status'=>403));
+        }
         $sha_before = (string)($meta['before_sha256'] ?? '');
         $sha_after = (string)($meta['after_sha256'] ?? '');
         if (!self::is_digest($sha_before) || !self::is_digest($sha_after)) {
