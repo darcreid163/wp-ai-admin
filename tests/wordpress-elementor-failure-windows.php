@@ -78,19 +78,42 @@ try {
         $assessment['automatic_retry_allowed']===false,
         'Incomplete write recovery may overwrite another editor');
 
-    // Model the second crash window: DB marks "applied" but process dies
-    // before storing receipt/proof. Inspector must surface the incident.
-    window_ok(OAI_Elementor::save_document($post,$after),'Reset disposable applied fixture');
-    OAI_DB::update($id,['status'=>'applied','phase'=>'applied','receipt'=>null,'proof'=>null]);
+    // The operation owner can reconcile ONLY if the actual persisted page
+    // already equals the approved after-image, without repeating the save.
+    $blocked=OAI_Elementor_Document_Executor::reconcile_applied_human($id,$post,$nonce);
+    window_require(is_wp_error($blocked) &&
+        $blocked->get_error_code()==='oai_reconcile_conflict',
+        'Reconciliation must refuse a foreign editor change');
+    $blocked=OAI_Elementor_Document_Executor::reconcile_applied_human($id,$post,'');
+    window_require(is_wp_error($blocked) &&
+        $blocked->get_error_code()==='oai_reconcile_permission',
+        'Reconciliation accepted missing human nonce');
+    window_ok(OAI_Elementor::save_document($post,$after),'Restore approved state for human reconciliation fixture');
+    $fixed=window_ok(OAI_Elementor_Document_Executor::reconcile_applied_human($id,$post,$nonce),
+        'Explicit human readback reconciliation');
+    window_require($fixed['status']==='applied' && $fixed['reconciled']===true &&
+        $fixed['write_executed']===false &&
+        ($fixed['receipt']['reconciled_from']??'')==='incomplete_execution',
+        'Reconciliation replayed a write or failed to persist proof/receipt');
+    $replay=OAI_Elementor_Document_Executor::reconcile_applied_human($id,$post,$nonce);
+    window_require(is_wp_error($replay),'Reconciliation replay accepted');
+    // Model the second crash window: DB marked "applied", then lost receipt.
+    OAI_DB::update($id,['receipt'=>null,'proof'=>null]);
     $gap=window_ok(OAI_Elementor_Document_Recovery::inspect_human($id,$post),
         'Detect absent Apply receipt');
     window_require($gap['terminal_receipt_or_proof_missing']===true &&
         $gap['evidence_incident']==='missing_or_incorrect_terminal_receipt_or_proof' &&
         $gap['automatic_retry_allowed']===false,'Applied status without receipt was treated as success');
 
-    window_ok(OAI_Elementor::save_document($post,$before),'Restore disposable rollback fixture');
-    OAI_DB::update($id,['status'=>'rolled_back','phase'=>'rolled_back','receipt'=>null,
-        'proof'=>null,'rolled_back_at'=>current_time('mysql',true)]);
+    // The normal, properly approved Rollback remains possible after a
+    // confirmed human reconciliation: it restores DB-only original state.
+    $rolled=window_ok(OAI_Elementor_Document_Executor::rollback_human($id,$post,$nonce),
+        'Rollback after explicit human reconciliation');
+    window_require($rolled['status']==='rolled_back' &&
+        ($rolled['receipt']['event']??'')==='rollback',
+        'Reconciled Apply cannot use the normal rollback lifecycle');
+    // Simulate a crash after rolled_back but before saving its evidence.
+    OAI_DB::update($id,['receipt'=>null,'proof'=>null]);
     $gap=window_ok(OAI_Elementor_Document_Recovery::inspect_human($id,$post),
         'Detect absent Rollback receipt');
     window_require($gap['terminal_receipt_or_proof_missing']===true &&
