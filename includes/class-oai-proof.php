@@ -5,14 +5,13 @@ class OAI_Proof {
  public static function make($id){
   $r=OAI_DB::get($id); if(!$r)return null;
   $stored=json_decode((string)($r['proof']??''),true);
-  // Proof is specific to an execution phase. A previous successful Apply
-  // proof must never be reused as evidence for a subsequent Rollback.
-  $wanted_phase=in_array((string)$r['status'],array('rolled_back','rollback_failed'),true)?'rollback':'after';
-  if(is_array($stored) && !empty($stored['hash']) &&
-     ($stored['proof_kind']??'')==='execution' &&
-     ($stored['phase']??'')===$wanted_phase &&
-     !empty($stored['verified']))return $stored;
-  if(in_array((string)$r['status'],array('pending','approved','applying'),true))return array('proof_kind'=>'preflight','operation_id'=>$r['operation_id'],'status'=>$r['status'],'phase'=>OAI_Lifecycle::phase((string)$r['status']),'verified'=>false,'execution_proof'=>false,'generated_at'=>gmdate('c'),'plugin'=>OAI_VERSION,'build_id'=>OAI_BUILD_ID);
+  $status=(string)$r['status'];
+  $desired_phase=in_array($status,array('rolled_back','rollback_failed'),true)?'rollback':'after';
+  // A stored Apply proof cannot be reused after the lifecycle moves into a
+  // rollback terminal state. Reuse is safe only while it attests the same
+  // lifecycle phase; otherwise recompute from the current canonical record.
+  if(is_array($stored) && !empty($stored['hash']) && ($stored['proof_kind']??'')==='execution' && !empty($stored['verified']) && ($stored['phase']??null)===$desired_phase)return $stored;
+  if(in_array($status,array('pending','approved','applying'),true))return array('proof_kind'=>'preflight','operation_id'=>$r['operation_id'],'status'=>$r['status'],'phase'=>OAI_Lifecycle::phase($status),'verified'=>false,'execution_proof'=>false,'generated_at'=>gmdate('c'),'plugin'=>OAI_VERSION,'build_id'=>OAI_BUILD_ID);
   $after=json_decode((string)$r['after_data'],true); $before=json_decode((string)$r['before_data'],true); $applied=json_decode((string)($r['applied_data']??''),true); $meta=json_decode((string)$r['meta_data'],true);
   $phase=($r['status']==='rolled_back'||$r['status']==='rollback_failed')?'rollback':'after';
   // Proof must attest the canonical state that Apply actually verified. Some
