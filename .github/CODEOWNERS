@@ -1,0 +1,5 @@
+# Native repository code ownership — maintainer retains merge authority.
+* @darcreid163
+/.github/ @darcreid163
+/includes/ @darcreid163
+/tests/ @darcreid163
