@@ -44,6 +44,12 @@ try {
     oai_smoke_assert(is_wp_error($conflict), 'Stale apply was accepted');
     oai_smoke_assert((int)get_option('thumbnail_size_w') === 153, 'Stale apply overwrote concurrent change');
     update_option('thumbnail_size_w', 150, false);
+    // A conflicted apply transitions the operation to a failed terminal state.
+    // Never retry that operation: plan a new immutable snapshot for the valid edit.
+    $valid = oai_smoke_ok(oai_smoke_plan(151), 'Prepare fresh sandbox');
+    $id = (int)($valid['id'] ?? 0);
+    oai_smoke_assert($id > 0, 'Missing fresh sandbox operation');
+    oai_smoke_ok(OAI_AI_Lifecycle_Control::perform($id, 'approve', 'disposable-lifecycle-ci', 1), 'Approve fresh sandbox');
 
     oai_smoke_ok(OAI_AI_Lifecycle_Control::perform($id, 'apply', 'disposable-lifecycle-ci', 1), 'Apply');
     oai_smoke_assert((int)get_option('thumbnail_size_w') === 151, 'Approved apply did not persist');
