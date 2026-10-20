@@ -173,3 +173,14 @@ While this branch was developed, independent PR #5 (DeepSeek adversarial gap rep
 2. Run on current base **including** merged publication and adversarial QA gates; preserve, never weaken, all existing checks.
 3. Add safe owner-authorized recovery/resumption design for interrupted CAS without blind replay and test failed writes/after-save crash boundaries.
 4. Wire full typed execution through existing Native sandbox lifecycle **only after** the above QA gates and explicit maintainer approval; require private Cloud tenant/client identity contract before MCP tool exposure.
+
+## 2026-10-20 — PR #6 branch reconciliation and latest CI
+
+After DeepSeek's independent PR #5 (adversarial fixture) and PR #9 (publication/licensing guardrails) were merged to public `main`, PR #6 became unmergeable (`dirty`) and no longer received ordinary PR CI. We resolved it by **merging main into only the PR #6 feature branch** using a two-parent merge commit `2c41ca20032e1abd6fe4591d81e0e57f67f1830e`. Both sets of test gates are retained: main's adversarial gap reproducer and publication boundary, plus all new Elementor binding/execution/recovery tests.
+
+- CI [run #39418132363](https://github.com/darcreid163/wp-ai-admin/actions/runs/39418132363): **5/5 Passed**, PHP 8.2/8.3/8.4 and pinned/latest WordPress plugin stacks.
+- Latest WordPress log explicitly confirms successful human-approved DB-only Elementor Apply/Verify/Proof/Receipt/Rollback, no replay/stale overwrite, one-winner Apply/Rollback CAS, and **read-only crash classification**. Rollback receives a fresh, rollback-phase-specific proof, not cached Apply proof.
+- The merge resolves branch conflicts **without merging Elementor PR #6 to main**. It does not authorize release.
+- Independent review remains mandatory for failure after persistence, proof/receipt crash window, authorizer/nonce ownership, narrow post type policy, double-billing, and the residual gap between pre-save read and actual Elementor document persistence. The adversarial QA reproducer and publication gate are preserved but their results need independent semantic assessment: a passing gap report does not by itself mean no vulnerabilities.
+
+Current integration work is internal-only. No new runtime REST/MCP tool or production deployment.
