@@ -109,6 +109,41 @@ final class OAI_Elementor_Trusted_Planner {
     }
 
     /**
+     * Human approval provenance for a prepared operation. A status field and
+     * timestamp alone are insufficient: the existing REST handler must have
+     * written an audit event by the same WP administrator who planned it.
+     * This is additional evidence, not a substitute for nonce/session checks.
+     */
+    public static function verify_approval_record($row) {
+        $origin=self::verify_record($row);
+        if (is_wp_error($origin)) return $origin;
+        if (!in_array((string)($row['status'] ?? ''),
+            array('approved','applying','applied','rolling_back','rolled_back'),true) ||
+            empty($row['approved_at']) || empty($row['id'])) {
+            return new WP_Error('oai_planner_approval','A persisted approval is required',array('status'=>403));
+        }
+        global $wpdb;
+        if (!isset($wpdb) || !method_exists($wpdb,'prepare') ||
+            !method_exists($wpdb,'get_var') || !method_exists('OAI_DB','audit_table')) {
+            return new WP_Error('oai_planner_audit','Approval audit store unavailable',array('status'=>503));
+        }
+        $meta=json_decode((string)($row['meta_data'] ?? ''),true);
+        $actor=absint($meta['owner_user_id'] ?? 0);
+        $audit=OAI_DB::audit_table();
+        $sql="SELECT id FROM {$audit} WHERE operation_db_id=%d
+            AND operation_id=%s AND event=%s AND actor=%d
+            AND created_at >= %s LIMIT 1";
+        $audit_id=$wpdb->get_var($wpdb->prepare($sql,
+            (int)$row['id'], (string)$row['operation_id'], 'approved',
+            $actor, (string)$row['created_at']));
+        if (!$audit_id) {
+            return new WP_Error('oai_planner_approval',
+                'Operation has no trusted administrator approval audit event',array('status'=>403));
+        }
+        return true;
+    }
+
+    /**
      * Verify planner-issued provenance of the persisted DB record. A valid
      * signature proves planning origin, not the later human approval event.
      */
