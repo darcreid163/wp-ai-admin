@@ -20,3 +20,9 @@ Status: PRIVATE / PUBLICATION BLOCKED until validation.
 7. Require a human-reviewed release and staging connection regression before any production deployment.
 
 Do not expose this repository to the public until these gates are satisfied.
+
+## 2026-10-20 audit continuation
+- Rechecked both new Git trees against the source monorepo: all selected Native source/test files and all current and legacy Cloud Core source/test files were migrated. The only deliberately excluded Native file is `tests/fixtures/woodmart-mcp-1.0.1.zip`, which the legacy full WordPress regression still expects.
+- Textual repository scan completed; project-specific references were cleaned. No server code or release ZIP appears in the new Native tree.
+- Last checked Actions workflow failed before any job step was recorded (jobs had `steps: null`). PHP tests have therefore **not** been executed by hosted Actions. Investigate account-level GitHub Actions spending limit or billing entitlement, runner policy, or runner availability. Do not interpret the failed workflow as a PHP regression.
+- Public Native still requires an independent full secrets / legal attribution audit and reproducible CI success. No production installation is authorized.
