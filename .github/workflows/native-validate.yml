@@ -25,6 +25,8 @@ jobs:
         run: php tests/repository-boundary.php
       - name: Elementor schema/save lifecycle
         run: php tests/elementor-schema-save-stage1.php
+      - name: Upgrade bootstrap fail-closed regression
+        run: php tests/upgrade-bootstrap.php
       - name: Elementor single-source
         run: php tests/elementor-single-source.php
       - name: WooCommerce stock
