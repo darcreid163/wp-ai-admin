@@ -92,6 +92,21 @@ final class OAI_Elementor_Operation_Binding {
         );
     }
 
+    /**
+     * AI-controlled lifecycle preflight: require a context issued by the existing
+     * OAI_AI_Lifecycle_Control::perform() after validating owner + bound MCP client.
+     * This is read-only and must be invoked by the actual lifecycle executor,
+     * never from a standalone user-controlled route. WordPress admin/human
+     * approval uses a separate scoped flow and is deliberately not mimicked.
+     */
+    public static function inspect_ai_authorized($operation_id, $action, $post_id) {
+        if (!class_exists('OAI_AI_Lifecycle_Control') ||
+            !OAI_AI_Lifecycle_Control::request_authorized(absint($operation_id), $action)) {
+            return new WP_Error('oai_binding_authorization', 'Authorized lifecycle context required', array('status'=>403));
+        }
+        return self::inspect($operation_id, $action, $post_id);
+    }
+
     private static function json_object($raw) {
         if (!is_string($raw)) return null;
         $v = json_decode($raw, true, 128);
