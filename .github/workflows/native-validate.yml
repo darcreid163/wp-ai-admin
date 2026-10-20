@@ -33,3 +33,27 @@ jobs:
         run: php tests/option-normalization.php
       - name: Control plane entitlements
         run: php tests/control-plane-entitlements.php
+
+  wordpress-smoke:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test-password
+          MYSQL_DATABASE: wp_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -ptest-password"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mysqli, pdo_mysql, curl, sodium
+          coverage: none
+      - name: Real WordPress + Elementor activation
+        run: bash tests/wordpress-native-smoke.sh
