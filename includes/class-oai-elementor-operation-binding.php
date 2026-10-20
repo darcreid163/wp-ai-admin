@@ -96,6 +96,14 @@ final class OAI_Elementor_Operation_Binding {
             'status'=>$row['status'], 'site_id'=>$stored_site,
             'before_sha256'=>$sha_before, 'after_sha256'=>$sha_after,
             'prepared_change'=>$prepared,
+            // Exact database bytes at the time of preflight, required by the
+            // subsequent atomic claim to detect intervening row edits.
+            'operation_id'=>(string)$row['operation_id'],
+            'row_fingerprints'=>array(
+                'before'=>hash('sha256', (string)$row['before_data']),
+                'after'=>hash('sha256', (string)$row['after_data']),
+                'meta'=>hash('sha256', (string)$row['meta_data']),
+            ),
             'preflight_only'=>true,
         );
     }
