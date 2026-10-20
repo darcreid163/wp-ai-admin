@@ -216,7 +216,7 @@ class OAI_MCP {
    ,'system.test_automation_status'=>array('type'=>'object','additionalProperties'=>false)
    ,'system.regression_run'=>array(
      'type'=>'object',
-     'required'=>array('content_post_id','elementor_post_id','elementor_widget_id','product_id'),
+     'description'=>'Uses managed QA fixtures from the current administrator-enabled session when IDs are omitted.',
      'properties'=>array(
       'content_post_id'=>array('type'=>'integer','minimum'=>1),
       'elementor_post_id'=>array('type'=>'integer','minimum'=>1),
@@ -235,7 +235,7 @@ class OAI_MCP {
     )
    ,'system.regression_matrix'=>array(
      'type'=>'object',
-     'required'=>array('content_post_id','elementor_post_id','elementor_widget_id','product_id'),
+     'description'=>'Uses managed QA fixtures from the current administrator-enabled session when IDs are omitted.',
      'properties'=>array(
       'content_post_id'=>array('type'=>'integer','minimum'=>1),
       'elementor_post_id'=>array('type'=>'integer','minimum'=>1),
@@ -380,7 +380,7 @@ class OAI_MCP {
   $tools[]=self::tool('operation.reject','Reject requires human wp-admin confirmation by default; scoped Test Automation Mode can act only on session-tagged test operations.', $schemas['operation.reject'],array('readOnlyHint'=>false,'destructiveHint'=>true));
   $tools[]=self::tool('operation.approve','Approval requires human wp-admin confirmation by default; scoped Test Automation Mode can act only on session-tagged test operations.',array('type'=>'object','required'=>array('id'),'additionalProperties'=>false,'properties'=>array('id'=>array('type'=>'integer','minimum'=>1))),array('readOnlyHint'=>false,'destructiveHint'=>true));
   $tools[]=self::tool('operation.apply','Apply requires human wp-admin confirmation by default; scoped Test Automation Mode can act only on session-tagged test operations and still runs conflict/verify guards.',array('type'=>'object','required'=>array('id'),'additionalProperties'=>false,'properties'=>array('id'=>array('type'=>'integer','minimum'=>1))),array('readOnlyHint'=>false,'destructiveHint'=>true));
-  $tools[]=self::tool('system.operations_cleanup','Safely inspect or delete terminal operation ledger rows. Dry-run is default. Active pending/approved/applying/rolling_back operations are always protected. Applied rows require explicit include_applied=true. Audit log is preserved.',$schemas['system.operations_cleanup'],array('readOnlyHint'=>false,'destructiveHint'=>true));
+  $tools[]=self::tool('system.operations_cleanup','Safely inspect or delete terminal operation ledger rows. Dry-run is default. Active pending/approved/applying/rollback_pending/rolling_back operations are always protected. Applied rows require explicit include_applied=true. Audit log is preserved.',$schemas['system.operations_cleanup'],array('readOnlyHint'=>false,'destructiveHint'=>true));
   $tools[]=self::tool('operation.rollback','Rollback requires human wp-admin confirmation by default; scoped Test Automation Mode can act only on session-tagged test operations and still runs rollback conflict/verify guards.',array('type'=>'object','required'=>array('id'),'additionalProperties'=>false,'properties'=>array('id'=>array('type'=>'integer','minimum'=>1))),array('readOnlyHint'=>false,'destructiveHint'=>true));
   return $tools;
  }

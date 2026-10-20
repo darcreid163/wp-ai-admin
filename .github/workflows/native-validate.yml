@@ -61,3 +61,53 @@ jobs:
           coverage: none
       - name: Real WordPress + Elementor activation
         run: bash tests/wordpress-native-smoke.sh
+
+  build-artifact:
+    # Installable ZIP is produced here and never committed: tests/repository-boundary.php
+    # rejects committed archives, and a release asset is the distributable unit.
+    runs-on: ubuntu-latest
+    needs: [php]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build installable ZIP and checksums
+        run: |
+          set -euo pipefail
+          VERSION="$(sed -n "s/^define('OAI_VERSION','\([^']*\)').*/\1/p" okean-ai-admin.php | head -n1)"
+          test -n "$VERSION"
+          mkdir -p dist/okean-ai-admin
+          cp -a okean-ai-admin.php includes starter-themes README.md README.txt LICENSE THIRD-PARTY.md BUILD-SIGNATURE.txt BUILD_SIGNATURE.txt dist/okean-ai-admin/
+          (cd dist && zip -qr "wp-ai-admin-$VERSION.zip" okean-ai-admin)
+          cd dist
+          sha256sum "wp-ai-admin-$VERSION.zip" > "wp-ai-admin-$VERSION.zip.sha256"
+          unzip -tq "wp-ai-admin-$VERSION.zip"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          cat "wp-ai-admin-$VERSION.zip.sha256"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wp-ai-admin-${{ env.VERSION }}
+          path: |
+            dist/wp-ai-admin-*.zip
+            dist/wp-ai-admin-*.zip.sha256
+          if-no-files-found: error
+
+  release:
+    # Publishing is explicit: push a tag like v2.1.16.
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    needs: [php, wordpress-smoke, build-artifact]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Publish release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME}"
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 || \
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --title "WP AI Admin ${TAG#v}" --notes "Installable ZIP and SHA-256 checksum. See MIGRATION-STATUS.md for the release gates."
+          gh release upload "$TAG" dist/wp-ai-admin-*.zip dist/wp-ai-admin-*.zip.sha256 --repo "$GITHUB_REPOSITORY" --clobber
