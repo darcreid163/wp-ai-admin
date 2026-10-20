@@ -21,6 +21,8 @@ jobs:
           coverage: none
       - name: PHP lint
         run: find . -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Public repository boundary
+        run: php tests/repository-boundary.php
       - name: Elementor schema/save lifecycle
         run: php tests/elementor-schema-save-stage1.php
       - name: Elementor single-source
