@@ -19,3 +19,5 @@ wp_test plugin status okean-ai-admin
 wp_test eval-file "$PWD/tests/wordpress-mcp-onboarding.php"
 # Exercise the actual WordPress admin menu and central connection links.
 wp_test eval-file "$PWD/tests/wordpress-admin-navigation.php"
+# Mutate only disposable WP options and verify the entire guarded lifecycle.
+OAI_DISPOSABLE_WP_TEST=1 wp_test eval-file "$PWD/tests/wordpress-lifecycle-smoke.php"
