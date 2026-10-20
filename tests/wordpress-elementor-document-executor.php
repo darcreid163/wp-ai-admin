@@ -55,6 +55,35 @@ try {
         'oai_lease_nonce','Missing nonce accepted');
     doc_success(doc_approve($id,$nonce),'Human approval');
 
+    // A human editing the same page should receive priority over an AI
+    // document-wide write, even when an operation was approved earlier.
+    $foreign_lock=(string)time().':2';
+    update_post_meta($post,'_edit_lock',$foreign_lock);
+    $locked=OAI_Elementor_External_Edit_Guard::inspect($post,$original);
+    doc_error($locked,'oai_external_editor_active',
+        'Active foreign WordPress edit lock was ignored');
+    delete_post_meta($post,'_edit_lock');
+    update_post_meta($post,'_edit_lock',(string)time().':1');
+    $own_lock=doc_success(OAI_Elementor_External_Edit_Guard::inspect($post,$original),
+        'Own WordPress edit lock must be permitted');
+    doc_expect($own_lock['writer_exclusion_guaranteed']===false,
+        'Advisory WordPress lock must not be presented as a strong DB lock');
+    delete_post_meta($post,'_edit_lock');
+
+    // Bypass WP postmeta cache to simulate a third-party direct SQL edit.
+    // The independent DB read must still catch the divergent content.
+    $other_tree=$original;
+    $other_tree[0]['settings']['title']='Other editor uncommitted override';
+    $wpdb->update($wpdb->postmeta,[
+        'meta_value'=>wp_json_encode($other_tree,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)
+    ],['post_id'=>$post,'meta_key'=>'_elementor_data'],['%s'],['%d','%s']);
+    $db_conflict=OAI_Elementor_External_Edit_Guard::inspect($post,$original);
+    doc_error($db_conflict,'oai_external_guard_stale',
+        'Independent MySQL read failed to detect external data change');
+    update_post_meta($post,'_elementor_data',wp_slash(wp_json_encode($original)));
+    clean_post_cache($post);
+    wp_cache_delete($post,'post_meta');
+
     $applied=doc_success(OAI_Elementor_Document_Executor::apply_human($id,$post,$nonce),'Execute Apply');
     doc_expect(($applied['status']??'')==='applied' && !empty($applied['verified']),
         'Apply did not commit verified status');
