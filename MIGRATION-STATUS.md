@@ -27,7 +27,7 @@ Status: PRIVATE / PUBLICATION BLOCKED until validation. Gates 1–4 verified on 
 | 2 | PHP lint and isolated fixtures | **closed** | Hosted CI green on three PRs; local rerun: 85 PHP files, 0 lint errors, 7 isolated suites pass |
 | 3 | Disposable WordPress/Elementor smoke | **closed** | `wordpress-smoke` job (WP 7.0.6 + latest, Woo 11.1.2, Elementor 4.3.3, Yoast 28.6) green in the same runs |
 | 4 | Legacy upgrade fixtures | **closed as explicit skip** | `tests/wordpress-upgrade.sh` now skips loudly when the private 2.1.5/2.1.11/Woodmart fixtures are absent; `OAI_REQUIRE_PRIVATE_FIXTURES=1` forces failure. The legacy scenario is therefore **not covered publicly** — treat it as unavailable, not as passing |
-| 5 | Production version/source parity | open | Public main is the 2.1.14 baseline; the qualified 2.1.15 / Cloud 0.3.8 candidate lives in private PRs and is not reconciled here |
+| 5 | Production version/source parity | **closed for runtime parity, production unverified** | 2.1.16 is the 2.1.15 runtime line (18 include files + `class-oai-qa-fixtures.php`, `OAI_DB_VERSION` unchanged at 23) merged with the independently reviewed public work. What is deployed on `wpaiadmin.ru` has **not** been read back yet; that check needs an authenticated `system_manifest`/plugin read and is the remaining half of this gate |
 | 6 | Secrets, attribution, GPL notices | **closed technically, legal review open** | `tests/repository-boundary.php` now checks boundary, publication contract and disclosure hygiene (negative-tested); `THIRD-PARTY.md` records the GPL-2.0-or-later attribution and porting obligations |
 | 7 | Human-reviewed release and staging regression | open | Requires maintainer approval and a live two-site connection check |
 
@@ -35,7 +35,7 @@ Reproduce the automated gate locally with `php tests/repository-boundary.php`. I
 installable artifacts, server-only paths, key material, absolute local paths, missing
 `LICENSE`/`THIRD-PARTY.md`, a non-GPL plugin header, or missing WPVibe attribution.
 
-Do not expose this repository to the public until gates 5–7 are satisfied.
+Do not expose this repository to the public until gate 7 is satisfied and gate 5's production read-back is recorded.
 
 ## 2026-10-20 audit continuation
 - Rechecked both new Git trees against the source monorepo: all selected Native source/test files and all current and legacy Cloud Core source/test files were migrated. The only deliberately excluded Native file is `tests/fixtures/woodmart-mcp-1.0.1.zip`, which the legacy full WordPress regression still expects.
