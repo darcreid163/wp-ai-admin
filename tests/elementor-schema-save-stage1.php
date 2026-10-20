@@ -68,6 +68,13 @@ check($adapter::apply_approved(42,$proposal,true)===true,'approved apply failed'
 check($adapter::verify(42,$changed)['ok']===true,'verify failed');
 check($adapter::verify(42,$original['tree'])['ok']===false,'false positive verification');
 error_code($adapter::rollback_approved(42,$proposal),'oai_approval_required');
+$rollback_tamper=$proposal;
+$rollback_tamper['before'][0]['settings']['title']='Forged rollback';
+error_code($adapter::rollback_approved(42,$rollback_tamper,true),'oai_change_integrity');
+check($adapter::snapshot(42)['tree']===$changed,'tampered rollback changed the live document');
+$rollback_bad_hash=$proposal;
+$rollback_bad_hash['after_sha256']=array('bad');
+error_code($adapter::rollback_approved(42,$rollback_bad_hash,true),'oai_invalid_change');
 OAI_Elementor::$trees[42][0]['settings']['title']='Concurrent edit';
 error_code($adapter::rollback_approved(42,$proposal,true),'oai_rollback_conflict');
 OAI_Elementor::$trees[42]=$changed;
