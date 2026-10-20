@@ -33,6 +33,13 @@ final class OAI_Elementor_Operation_Binding {
         if (!in_array((string)($row['status'] ?? ''), $expected_states, true)) {
             return new WP_Error('oai_binding_state', 'Operation not in a permitted preflight state', array('status'=>409));
         }
+        if ($action === 'apply' && !empty($row['expires_at']) &&
+            strtotime((string)$row['expires_at']) < time()) {
+            return new WP_Error('oai_binding_expired', 'Prepared operation has expired', array('status'=>409));
+        }
+        if ($action === 'rollback' && empty($row['applied_at'])) {
+            return new WP_Error('oai_binding_unapplied', 'Operation has no recorded application', array('status'=>409));
+        }
         $meta = self::json_object($row['meta_data'] ?? '');
         $before = self::json_list($row['before_data'] ?? '');
         $after = self::json_list($row['after_data'] ?? '');
