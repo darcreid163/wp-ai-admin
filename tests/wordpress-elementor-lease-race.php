@@ -18,7 +18,8 @@ function lease_result($value,$why) {
     if(is_wp_error($value))throw new RuntimeException($why.': '.$value->get_error_code());
     return $value;
 }
-$marker = 'oai_disposable_lease_race';
+$mode = getenv('OAI_LEASE_MODE') === 'rollback' ? 'rollback' : 'apply';
+$marker = 'oai_disposable_lease_race_'.$mode;
 global $wpdb;
 if ($phase==='seed') {
     lease_expect(!get_option($marker,false),'Fixture already exists');
@@ -34,9 +35,12 @@ if ($phase==='seed') {
         lease_result(OAI_Elementor::save_document($post,$before),'Save baseline');
         $snapshot=lease_result(OAI_Elementor_Schema_Save::snapshot($post),'Snapshot');
         $change=lease_result(OAI_Elementor_Schema_Save::validate_replace($snapshot['tree'],$after,$snapshot['sha256']),'Prepare');
+        if ($mode==='rollback') lease_result(OAI_Elementor::save_document($post,$after),'Simulated previously applied state');
         $op=lease_result(OAI_DB::insert([
             'operation_id'=>'OAI-LEASE-CI-'.wp_generate_uuid4(),
-            'status'=>'approved','phase'=>'approved','type'=>'elementor_document_save',
+            'status'=>$mode==='rollback'?'applied':'approved',
+            'phase'=>$mode==='rollback'?'applied':'approved',
+            'type'=>'elementor_document_save',
             'target'=>(string)$post,
             'before_data'=>wp_json_encode($change['before']),
             'after_data'=>wp_json_encode($change['after']),
@@ -47,6 +51,7 @@ if ($phase==='seed') {
             'diff_data'=>'{}','risk'=>'medium',
             'created_at'=>current_time('mysql',true),
             'approved_at'=>current_time('mysql',true),
+            'applied_at'=>$mode==='rollback'?current_time('mysql',true):null,
             'expires_at'=>gmdate('Y-m-d H:i:s',time()+600)
         ]),'Create test-only approved row');
         update_option($marker,['post_id'=>$post,'operation_id'=>$op],false);
@@ -61,7 +66,7 @@ if ($phase==='seed') {
     lease_expect(is_array($data) && !empty($data['operation_id']), 'Fixture missing');
     $nonce=wp_create_nonce('wp_rest');
     $res=OAI_Elementor_Operation_Lease::claim_human(
-        (int)$data['operation_id'],'apply',(int)$data['post_id'],$nonce
+        (int)$data['operation_id'],$mode,(int)$data['post_id'],$nonce
     );
     if (is_wp_error($res)) {
         lease_expect(in_array($res->get_error_code(),
@@ -69,7 +74,7 @@ if ($phase==='seed') {
             'Unexpected failure '.$res->get_error_code());
         echo "REFUSED\n";
     } else {
-        lease_expect(!empty($res['claimed']) && $res['status']==='applying' &&
+        lease_expect(!empty($res['claimed']) && $res['status']===($mode==='rollback'?'rolling_back':'applying') &&
             $res['write_executed']===false, 'Claim did not return expected state');
         echo "CLAIMED\n";
     }
@@ -79,11 +84,12 @@ if ($phase==='seed') {
     $id=(int)$data['operation_id'];$post=(int)$data['post_id'];
     try {
         $row=OAI_DB::get($id);
-        lease_expect(is_array($row) && $row['status']==='applying',
+        lease_expect(is_array($row) && $row['status']===($mode==='rollback'?'rolling_back':'applying'),
             'Atomic claim did not persist exactly one applying state');
         $current=lease_result(OAI_Elementor_Schema_Save::snapshot($post),'Read unaffected document');
         $before=json_decode((string)$row['before_data'],true);
-        lease_expect(OAI_Elementor_Schema_Save::same_tree($current['tree'],$before),
+        $after=json_decode((string)$row['after_data'],true);
+        lease_expect(OAI_Elementor_Schema_Save::same_tree($current['tree'],$mode==='rollback'?$after:$before),
             'Claim unexpectedly modified Elementor document');
         echo "VERIFIED\n";
     } finally {
