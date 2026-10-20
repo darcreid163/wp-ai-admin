@@ -70,6 +70,23 @@ try {
     doc_expect($stored['status']==='applied' && !empty($stored['applied_at']) &&
         !empty($stored['applied_data']), 'Persisted Apply state missing');
 
+    // An approved rollback must not erase edits made by someone else after
+    // the verified Apply. Restoring the approved after-image is only a test
+    // fixture reset, not a production recovery procedure.
+    $post_apply_edit=$changed;
+    $post_apply_edit[0]['settings']['title']='Human edit after Apply';
+    doc_success(OAI_Elementor::save_document($post,$post_apply_edit),'Create later editor change');
+    doc_error(OAI_Elementor_Document_Executor::rollback_human($id,$post,$nonce),
+        'oai_binding_stale','Rollback overwrote a later human edit');
+    doc_expect(OAI_Elementor_Schema_Save::same_tree(
+        doc_success(OAI_Elementor_Schema_Save::snapshot($post),'Check later editor')['tree'],
+        $post_apply_edit),'Conflicted rollback touched the document');
+    doc_expect(OAI_DB::get($id)['status']==='applied',
+        'Refused rollback changed the applied operation state');
+    doc_success(OAI_Elementor::save_document($post,$changed),'Reset disposable fixture to approved after-image');
+    doc_error(OAI_Elementor_Document_Executor::rollback_human($id,$post,''),
+        'oai_lease_nonce','Rollback accepted without WP admin nonce');
+
     $rollback=doc_success(OAI_Elementor_Document_Executor::rollback_human($id,$post,$nonce),
         'Execute Rollback');
     doc_expect(($rollback['status']??'')==='rolled_back' && !empty($rollback['verified']) &&
