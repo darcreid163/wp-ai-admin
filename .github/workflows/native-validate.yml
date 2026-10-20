@@ -25,6 +25,8 @@ jobs:
         run: php tests/repository-boundary.php
       - name: Elementor schema/save lifecycle
         run: php tests/elementor-schema-save-stage1.php
+      - name: Upgrade bootstrap fail-closed regression
+        run: php tests/upgrade-bootstrap.php
       - name: Elementor single-source
         run: php tests/elementor-single-source.php
       - name: WooCommerce stock
@@ -36,6 +38,20 @@ jobs:
 
   wordpress-smoke:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - profile: installed-compat
+            wp: '7.0.6'
+            elementor: '4.3.3'
+            woo: '11.1.2'
+            yoast: '28.6'
+          - profile: latest-compat
+            wp: latest
+            elementor: latest
+            woo: latest
+            yoast: latest
     services:
       mysql:
         image: mysql:8.0
@@ -55,5 +71,10 @@ jobs:
           php-version: '8.3'
           extensions: mysqli, pdo_mysql, curl, sodium
           coverage: none
-      - name: Real WordPress + Elementor activation
+      - name: Real WordPress + Elementor/WooCommerce/Yoast regression
+        env:
+          WP_TEST_VERSION: ${{ matrix.wp }}
+          ELEMENTOR_TEST_VERSION: ${{ matrix.elementor }}
+          WOO_TEST_VERSION: ${{ matrix.woo }}
+          YOAST_TEST_VERSION: ${{ matrix.yoast }}
         run: bash tests/wordpress-native-smoke.sh
