@@ -26,6 +26,7 @@ WP AI Admin provides safe MCP access to WordPress sites, including Elementor, Gu
 | Independent collaboration protocol | Draft PR #4, CI passed | https://github.com/darcreid163/wp-ai-admin/pull/4 |
 | Authoritative document operation binding to Native DB and approvals | **In progress** | https://github.com/darcreid163/wp-ai-admin/issues/2 |
 | Independent adversarial QA | **First report delivered, 9 gaps reproduced** | https://github.com/darcreid163/wp-ai-admin/pull/5 |
+| Issue #2 staged integrity fixes on Draft PR #6 | **PHP 8.2/8.3/8.4 and WordPress passed** | https://github.com/darcreid163/wp-ai-admin/actions/runs/39404483886 |
 | Live OAuth end-to-end, subscriptions, tenant isolation and verified release | **Not cleared** | Separate private acceptance required |
 
 ## Pricing decision (shared design, server enforcement only)
@@ -66,15 +67,17 @@ DeepSeek's first published QA deliverable: [Draft PR #5](https://github.com/darc
 
 | Finding | Severity | ChatGPT issue #2 response |
 |---|---|---|
-| GAP-1 payload `after_sha256` ignored | High | Integrity validation added in Draft PR #6, pending CI |
+| GAP-1 payload `after_sha256` ignored | High | Integrity validation implemented in Draft PR #6; PHP + WordPress CI pass #39404483886 |
 | GAP-2 rollback snapshot caller-controlled | High | OPEN: bind exclusively to persisted immutable OAI_DB before-image |
 | GAP-3 boolean approval bypass | High | OPEN: replace with authoritative operation id and lifecycle context before any write route |
-| GAP-4 no post-save authoritative compare | Medium | Readback verification added in Draft PR #6, pending CI |
+| GAP-4 no post-save authoritative compare | Medium | Readback verification implemented in Draft PR #6; PHP + WordPress CI pass #39404483886 |
 | GAP-5 key-order false conflicts | Medium | OPEN: canonical equivalence design and tests |
 | GAP-6 unscoped schema/snapshot | Medium | OPEN: capabilities, owner and post-status scope |
 | GAP-7 no persisted Receipt/Proof in helper | Medium | OPEN: wire existing OAI_Receipts/OAI_Proof only through lifecycle |
-| GAP-8 malformed SHA causes warning | Low | Typed validation added in Draft PR #6, pending CI |
+| GAP-8 malformed SHA causes warning | Low | Typed validation implemented in Draft PR #6; PHP + WordPress CI pass #39404483886 |
 | GAP-9 check-then-act race | Medium | OPEN: operation lease, atomic status transition and two-process DB test |
+
+Rollback now also validates prepared hashes and checks the saved document by readback. This remains an **integrity check only**, not trustworthy operation provenance; GAP-2 and GAP-3 stay open until immutable OAI_DB-backed execution and full authorization are wired.
 
 The new Stage-2 binding utility is **read-only** and is NOT registered at runtime. It narrows persisted type/status/site/post/image checks; it does not cure independent authorization or atomic execution. A passing CI does not close the open high-severity findings.
 
