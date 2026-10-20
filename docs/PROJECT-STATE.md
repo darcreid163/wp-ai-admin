@@ -23,7 +23,7 @@ WP AI Admin provides safe MCP access to WordPress sites, including Elementor, Gu
 |---|---|---|
 | Original Native smoke and PHP 8.2/8.3/8.4 | Passed | https://github.com/darcreid163/wp-ai-admin/actions/runs/39394530925 |
 | Native user consent, OAuth retention, WP lifecycle, Elementor Schema/Save, pinned/latest WordPress stack, Receipt checks | Passed in Draft PR #1 | https://github.com/darcreid163/wp-ai-admin/actions/runs/39400426178 |
-| Independent collaboration protocol | Draft PR #4, CI passed | https://github.com/darcreid163/wp-ai-admin/pull/4 |
+| Independent collaboration protocol | Merged PR #4 into main (docs/templates/CODEOWNERS only) | https://github.com/darcreid163/wp-ai-admin/pull/4 |
 | Authoritative document operation binding to Native DB and approvals | **In progress** | https://github.com/darcreid163/wp-ai-admin/issues/2 |
 | Independent adversarial QA | **First report delivered, 9 gaps reproduced** | https://github.com/darcreid163/wp-ai-admin/pull/5 |
 | Issue #2 staged integrity fixes on Draft PR #6 | **PHP 8.2/8.3/8.4 and WordPress passed** | https://github.com/darcreid163/wp-ai-admin/actions/runs/39404483886 |
@@ -133,3 +133,7 @@ Integration branch: `agent/chatgpt/2-elementor-operation-binding`, Draft [PR #6]
 4. Integrate QA findings from [PR #5](https://github.com/darcreid163/wp-ai-admin/pull/5) and obtain owner approval before merge, release, or any installed-site update.
 
 Release meaning: **GAP-5 canonicalization tested in staging; GAP-9 concurrency mechanism tested in staging only. GAP-2/3/7 and full executor authorization remain OPEN.**
+
+## Repository synchronization checkpoint
+
+On 2026-10-20 the public Native main branch advanced to commit `37d54f931878f93f26fd5ea48add74bafd6c8523` through the **independent merge** of collaboration-only PR #4. The Elementor integration Draft PR #6 remains unmerged and is based on its earlier native main ancestor; the runtime changes are isolated to its feature branch. Do not confuse a passing feature-branch CI run with a release merge. Before eventual integration, reconcile with the current main branch and rerun checks on the exact merged candidate SHA.
