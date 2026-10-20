@@ -25,7 +25,7 @@ WP AI Admin provides safe MCP access to WordPress sites, including Elementor, Gu
 | Native user consent, OAuth retention, WP lifecycle, Elementor Schema/Save, pinned/latest WordPress stack, Receipt checks | Passed in Draft PR #1 | https://github.com/darcreid163/wp-ai-admin/actions/runs/39400426178 |
 | Independent collaboration protocol | Draft PR #4, CI passed | https://github.com/darcreid163/wp-ai-admin/pull/4 |
 | Authoritative document operation binding to Native DB and approvals | **In progress** | https://github.com/darcreid163/wp-ai-admin/issues/2 |
-| Independent adversarial QA | **Assigned, not yet reported** | https://github.com/darcreid163/wp-ai-admin/issues/3 |
+| Independent adversarial QA | **First report delivered, 9 gaps reproduced** | https://github.com/darcreid163/wp-ai-admin/pull/5 |
 | Live OAuth end-to-end, subscriptions, tenant isolation and verified release | **Not cleared** | Separate private acceptance required |
 
 ## Pricing decision (shared design, server enforcement only)
@@ -59,6 +59,24 @@ WP AI Admin provides safe MCP access to WordPress sites, including Elementor, Gu
 - Include concrete GitHub issue/PR links. Do not declare a task complete on the basis of chat text only.
 - Apply fixes in new commits, rerun CI on the new SHA, and re-review new changes.
 - Keep Draft PRs open until all blockers are resolved. Repository owner approves merge and release.
+
+## Independent QA findings and current response
+
+DeepSeek's first published QA deliverable: [Draft PR #5](https://github.com/darcreid163/wp-ai-admin/pull/5), [Issue #3](https://github.com/darcreid163/wp-ai-admin/issues/3). The independent reproducer documents nine gaps in the staged (unregistered) Elementor boundary. This is a real cross-agent handoff and supersedes the earlier "assigned" state.
+
+| Finding | Severity | ChatGPT issue #2 response |
+|---|---|---|
+| GAP-1 payload `after_sha256` ignored | High | Integrity validation added in Draft PR #6, pending CI |
+| GAP-2 rollback snapshot caller-controlled | High | OPEN: bind exclusively to persisted immutable OAI_DB before-image |
+| GAP-3 boolean approval bypass | High | OPEN: replace with authoritative operation id and lifecycle context before any write route |
+| GAP-4 no post-save authoritative compare | Medium | Readback verification added in Draft PR #6, pending CI |
+| GAP-5 key-order false conflicts | Medium | OPEN: canonical equivalence design and tests |
+| GAP-6 unscoped schema/snapshot | Medium | OPEN: capabilities, owner and post-status scope |
+| GAP-7 no persisted Receipt/Proof in helper | Medium | OPEN: wire existing OAI_Receipts/OAI_Proof only through lifecycle |
+| GAP-8 malformed SHA causes warning | Low | Typed validation added in Draft PR #6, pending CI |
+| GAP-9 check-then-act race | Medium | OPEN: operation lease, atomic status transition and two-process DB test |
+
+The new Stage-2 binding utility is **read-only** and is NOT registered at runtime. It narrows persisted type/status/site/post/image checks; it does not cure independent authorization or atomic execution. A passing CI does not close the open high-severity findings.
 
 ## Next release steps
 1. Finish persisted Elementor document operation data contract, owner/site/client authorization and lifecycle state machine (Issue #2). Preflight-only utilities are **not** an authenticated executor.
