@@ -8,6 +8,7 @@ foreach([
     'class-oai-elementor-operation-binding.php',
     'class-oai-elementor-trusted-planner.php',
     'class-oai-elementor-operation-lease.php',
+    'class-oai-elementor-document-executor.php',
     'class-oai-elementor-document-recovery.php'
 ] as $file) require_once dirname(__DIR__).'/includes/'.$file;
 function recovery_ok($value,$msg){
@@ -50,6 +51,13 @@ try {
         'Inspect committed yet unresolved Apply');
     recovery_assert($check['assessment']==='apply_may_have_committed',
         'Committed Apply not recognized');
+    // A crash in the tiny window before applied_data/applied_at persistence
+    // must NOT allow an operator to invent a successful confirmed Apply.
+    $premature=OAI_Elementor_Document_Executor::reconcile_applied_human(
+        $id,$post,$nonce);
+    recovery_assert(is_wp_error($premature) &&
+        $premature->get_error_code()==='oai_reconcile_state',
+        'Reconciliation accepted an unrecorded/uncertain write attempt');
     recovery_ok(OAI_Elementor::save_document($post,$other),'Simulate concurrent edit');
     $check=recovery_ok(OAI_Elementor_Document_Recovery::inspect_human($id,$post),
         'Inspect foreign editor change');
