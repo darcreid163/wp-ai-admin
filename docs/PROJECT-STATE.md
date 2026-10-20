@@ -203,3 +203,24 @@ DeepSeek delivered an independent audit as [PR #12](https://github.com/darcreid1
 **Full failure-window CI:** [run #39421099494](https://github.com/darcreid163/wp-ai-admin/actions/runs/39421099494) — **5/5 Passed** (PHP 8.2/8.3/8.4 plus pinned/latest real WordPress/Elementor/WooCommerce/Yoast). The WordPress test injects a post-save/pre-verification metadata conflict via WordPress's normal cache-clear action, asserts status stays `applying` with applied marker and a **non-success** incident, verifies no automatic overwrite, demonstrates refusal to reconcile a different document, then explicitly restores the *disposable fixture* and completes owner-only reconciliation with a normal DB-based Rollback. It also simulates lost Apply and Rollback receipts and verifies incident detection.
 
 **Safety boundary:** all new executor, planner, binding, CAS, reconciliation and recovery classes remain **unregistered at runtime**. The changes on PR #6 have not been merged into `main`; no production, private Cloud or live billing change. DeepSeek must independently re-audit the new head and the unresolved F2/F3/F5/F6/F7 gaps before any approval to expose a REST/MCP route.
+
+## 2026-10-20 Stage 8 — F3 external-editor race reproduction and hard release gate
+
+**Public Native main now contains the reviewed 2.1.16 release-line hardening, head `7e48f400`.** Our Elementor branch was reconciled with that main via merge commit `ea5075b6`, preserving publication security, release-artifact CI, expanded read-only CLI, DeepSeek QA tests and staged Elementor compatibility tests. This is a merge **into the draft feature branch only**.
+
+**Owner separation:** ChatGPT implements P0 [Issue #13](https://github.com/darcreid163/wp-ai-admin/issues/13), touching only its staged integration PHP and new integration fixture. DeepSeek owns independent QA/design of P0 [Issue #14](https://github.com/darcreid163/wp-ai-admin/issues/14) under new docs/test-only files; it must not edit includes/, our PR #6, the native CI workflow or this shared state file. Full directions are posted in both issues and #3.
+
+### What was added / verified
+
+- New **unregistered** `OAI_Elementor_External_Edit_Guard::inspect()` checks current administrator/post permissions, page-only type, advisory WordPress `_edit_lock` owned by a different user, and an independent direct MySQL read of `_elementor_data` against the approved snapshot (plus Elementor API). Missing/duplicate metadata or stale content fails closed. The staged executor calls this guard just before its document save.
+- **P0 remains OPEN:** two independent WP-CLI workers in `tests/wordpress-elementor-external-editor-race.php` deterministically reproduce a lost human edit when the human writer saves after the AI's preflight and before its actual save. The stdout explicitly reports `F3_UNSAFE_RACE_REPRODUCED` and `F3_CONFIRMED_UNSAFE_GAP_REMAINS`. This reproducer is intentionally test-successful when the unsafe gap is seen; CI green DOES NOT mean F3 is fixed.
+- A fail-closed **execution kill switch** blocks even an accidentally included staged executor and its human reconciliation on real sites. Writes are allowed only with explicit `OAI_ELEMENTOR_DOCUMENT_STAGED_TEST=true` PHP constant, `OAI_DISPOSABLE_WP_TEST=1` environment and localhost/.test WordPress origin. There are **no** registered Native REST/MCP write routes. The default-deny behavior is exercised by the WordPress fixture.
+- Release-safety design, residual threat model and exit criteria documented in `docs/ELEMENTOR-EXTERNAL-EDIT-RACE.md`. The advisory WP edit lock and last-moment DB read are useful guards, **not** a cross-editor exclusion guarantee.
+
+### Exact CI evidence
+
+- Reconciled Native 2.1.16 / Elementor feature: [run #39423883147](https://github.com/darcreid163/wp-ai-admin/actions/runs/39423883147), **6/6 success** (PHP 8.2/8.3/8.4, pinned/latest WP, artifact build; release skipped).
+- True two-process F3 reproducer: [run #39424413203](https://github.com/darcreid163/wp-ai-admin/actions/runs/39424413203), **6/6 success** but both WP logs show a demonstrated unsafe race.
+- Disposable-only executor default-deny: [run #39425035917](https://github.com/darcreid163/wp-ai-admin/actions/runs/39425035917), **6/6 success**. Earlier incremental commits had red tests because test fixtures did not yet enable the new explicit test-only switch; those were corrected and rerun.
+
+**Release condition:** never merge/enable a full Elementor document write until tests demonstrate that the other editor's changes are not overwritten even in after-check/before-save interleavings (not merely detected afterward), plus Issue #14 receipt/proof/usage safeguards and independent QA. The staged ZIP artifact produced by a Draft PR is not an approved production release.
