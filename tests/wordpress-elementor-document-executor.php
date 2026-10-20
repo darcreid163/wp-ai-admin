@@ -15,6 +15,12 @@ foreach ([
     'class-oai-elementor-external-edit-guard.php',
     'class-oai-elementor-document-executor.php'
 ] as $file) require_once dirname(__DIR__).'/includes/'.$file;
+// A default invocation MUST remain disabled, even on a disposable site.
+$off=OAI_Elementor_Document_Executor::apply_human(1,1,'ci');
+if (!is_wp_error($off) || $off->get_error_code()!=='oai_document_staged_only') {
+    throw new RuntimeException('Unreviewed Elementor full-document executor lacks fail-closed gate');
+}
+define('OAI_ELEMENTOR_DOCUMENT_STAGED_TEST',true);
 wp_set_current_user(1);
 function doc_expect($condition,$msg) {
     if (!$condition) throw new RuntimeException($msg);
