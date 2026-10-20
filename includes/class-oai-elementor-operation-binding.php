@@ -65,7 +65,8 @@ final class OAI_Elementor_Operation_Binding {
             return new WP_Error('oai_binding_actor', 'Operation owner or edit capability mismatch', array('status'=>403));
         }
         $target = get_post($post);
-        if (!$target || in_array((string)$target->post_status, array('trash', 'auto-draft'), true)) {
+        if (!$target || $target->post_type!=='page' ||
+            in_array((string)$target->post_status, array('trash', 'auto-draft','inherit'), true)) {
             return new WP_Error('oai_binding_post', 'Target document is unavailable', array('status'=>404));
         }
         // Approval must be a persisted lifecycle transition, not a caller flag.
