@@ -43,19 +43,27 @@ class OAI_DB {
  request_key char(64) NOT NULL,
  channel varchar(32) NOT NULL,
  units bigint(20) unsigned NOT NULL DEFAULT 1,
+ state varchar(20) NOT NULL DEFAULT 'succeeded',
+ reserved_units bigint(20) unsigned NOT NULL DEFAULT 0,
+ plan varchar(32) NOT NULL DEFAULT '',
+ period_key varchar(32) NOT NULL DEFAULT '',
+ fingerprint char(64) NOT NULL DEFAULT '',
+ evidence_sha256 char(64) NOT NULL DEFAULT '',
  created_at datetime NOT NULL,
+ updated_at datetime NULL,
  PRIMARY KEY  (request_key),
  KEY created_at (created_at),
  KEY channel (channel)
- ) $charset;";
+ ) ENGINE=InnoDB $charset;";
  dbDelta($qesql);
  $qsql="CREATE TABLE $q (
  plan varchar(32) NOT NULL,
  period_key varchar(32) NOT NULL,
  used bigint(20) unsigned NOT NULL DEFAULT 0,
+ reserved bigint(20) unsigned NOT NULL DEFAULT 0,
  updated_at datetime NOT NULL,
  PRIMARY KEY  (plan,period_key)
- ) $charset;";
+ ) ENGINE=InnoDB $charset;";
  dbDelta($qsql);
  $asql="CREATE TABLE $a (
  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -84,7 +92,8 @@ class OAI_DB {
   if($lock && (time()-$lock)<DAY_IN_SECONDS) return;
   update_option('oai_quota_events_pruned_at',time(),false);
   global $wpdb; $table=self::quota_events_table();
-  $wpdb->query("DELETE FROM $table WHERE created_at < UTC_TIMESTAMP() - INTERVAL 90 DAY");
+  // Never erase unresolved reservations: time alone cannot prove the outcome.
+  $wpdb->query("DELETE FROM $table WHERE state IN ('succeeded','failed') AND created_at < UTC_TIMESTAMP() - INTERVAL 90 DAY");
  }
  public static function migrate_token(){ $old=get_option('oai_api_token',''); $new=get_option('oai_bearer_token',''); if(!$new && $old) update_option('oai_bearer_token',$old,false); }
  public static function insert($data){global $wpdb; $t=self::table(); $ok=$wpdb->insert($t,$data); if(!$ok) return new WP_Error('oai_db','Could not create operation',array('status'=>500,'db_error'=>$wpdb->last_error)); return (int)$wpdb->insert_id;}
