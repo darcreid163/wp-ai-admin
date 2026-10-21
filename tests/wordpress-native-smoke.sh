@@ -27,3 +27,6 @@ wp_test plugin status okean-ai-admin
 
 # Test solely against disposable WordPress; all products and blocks are drafts.
 OAI_DISPOSABLE_WP_TEST=1 wp_test eval-file "$PWD/tests/wordpress-commerce-blocks-matrix.php"
+
+# Exercise real sandbox/approval/apply/verify/rollback of temporary Woo draft.
+OAI_DISPOSABLE_WP_TEST=1 wp_test eval-file "$PWD/tests/wordpress-woocommerce-lifecycle.php"
