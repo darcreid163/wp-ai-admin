@@ -90,6 +90,29 @@ try {
     clean_post_cache($post);
     wp_cache_delete($post,'post_meta');
 
+    // QA G1: duplicate Elementor _elementor_data rows must fail closed
+    // at BOTH the pre-save guard and authoritative OAI_Verify.
+    $duplicate=add_post_meta($post,'_elementor_data',
+        wp_slash(wp_json_encode($original,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)),false);
+    doc_expect(is_numeric($duplicate) && (int)$duplicate>0,
+        'Cannot create a duplicate Elementor metadata test row');
+    $duplicates=OAI_Elementor_Schema_Save::canonical_meta_row($post);
+    doc_error($duplicates,'oai_elementor_meta_ambiguous',
+        'Canonical metadata resolver accepted duplicates');
+    doc_error(OAI_Elementor_External_Edit_Guard::inspect($post,$original),
+        'oai_elementor_meta_ambiguous','Pre-save guard accepted duplicate data');
+    $verify_duplicate=OAI_Verify::operation($id,$original,'before',true);
+    doc_expect(is_array($verify_duplicate) && empty($verify_duplicate['verified']) &&
+        ($verify_duplicate['checks'][0]['message']??'')==='oai_elementor_meta_ambiguous',
+        'Verify accepted a duplicate persisted Elementor row');
+    $wpdb->delete($wpdb->postmeta,['meta_id'=>(int)$duplicate],['%d']);
+    clean_post_cache($post);
+    wp_cache_delete($post,'post_meta');
+    $single=doc_success(OAI_Elementor_Schema_Save::canonical_meta_row($post),
+        'Restore one canonical metadata row');
+    doc_expect(OAI_Elementor_Schema_Save::same_tree($single['tree'],$original),
+        'Restored single-row snapshot differs from original');
+
     $applied=doc_success(OAI_Elementor_Document_Executor::apply_human($id,$post,$nonce),'Execute Apply');
     doc_expect(($applied['status']??'')==='applied' && !empty($applied['verified']),
         'Apply did not commit verified status');
