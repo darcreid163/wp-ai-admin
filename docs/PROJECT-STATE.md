@@ -224,3 +224,18 @@ DeepSeek delivered an independent audit as [PR #12](https://github.com/darcreid1
 - Disposable-only executor default-deny: [run #39425035917](https://github.com/darcreid163/wp-ai-admin/actions/runs/39425035917), **6/6 success**. Earlier incremental commits had red tests because test fixtures did not yet enable the new explicit test-only switch; those were corrected and rerun.
 
 **Release condition:** never merge/enable a full Elementor document write until tests demonstrate that the other editor's changes are not overwritten even in after-check/before-save interleavings (not merely detected afterward), plus Issue #14 receipt/proof/usage safeguards and independent QA. The staged ZIP artifact produced by a Draft PR is not an approved production release.
+
+## 2026-10-21 Stage 9 — real external-editor transaction spike and agent handoff
+
+**Native base:** public main at `7e48f400` (2.1.16 hardening). Stage-only Elementor Draft PR #6 is reconciled and separate. No production or private Cloud changes.
+
+**Parallel ownership:** ChatGPT writes the integration/source + test spike for P0 Issue #13, DeepSeek reviews #13 and owns independent QA/design of P0 Issue #14 in **new** `docs/QA-EXECUTION-EVIDENCE-*` and `tests/qa-execution-evidence-*` files. Neither agent may rewrite another's PR branch, overwrite common workflows or merge without review. Source-of-truth comments are on Issues #13, #14 and #3. As of the most recent GitHub check, there has been **no DeepSeek response or PR for #14**; do not pretend independent work has been done.
+
+**F3 experiment:** new disposable-only two-process MySQL transaction fixture `tests/wordpress-elementor-external-transaction.php`, executed in `tests/wordpress-native-smoke.sh` on both supported WordPress test profiles:
+1. Human writer saves after AI preflight but before AI's `SELECT ... FOR UPDATE`: DB transaction reads the new document and AI **refuses** rather than overwriting.
+2. AI holds `_elementor_data` row lock, human/editor process starts a save and waits until AI commits: writes **serialize**, then last human write completes. But the human had loaded a *stale pre-AI document*, so **the approved AI content can be overwritten**. This is reverse lost update; the test now labels it explicitly.
+3. Row locks are necessary but not sufficient. A genuine shared version/ETag check must be enforced for *both* AI and human/Elementor UI writers. Raw SQL replacements are not an approved workaround; Elementor save hooks/CSS/cache and normal revisions must remain correct.
+
+**Evidence:** Initial transaction experiment CI [#39546442955](https://github.com/darcreid163/wp-ai-admin/actions/runs/39546442955) **6/6 Passed** after correcting an isolated WP-CLI signal-path scope bug. The later test commit `7462e1d5` adds explicit reverse-loss assertions; those must have a separate passing CI before being treated as verified.
+
+**Safety gate:** staged full-document Apply/Rollback remains fail-closed outside disposable CI, even if an operator loads the class. No new public REST/MCP writer has been registered. Release P0 #13 and #14 stay open; no branch merge or live installation.
