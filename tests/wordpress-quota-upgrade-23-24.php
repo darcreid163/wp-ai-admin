@@ -1,5 +1,5 @@
 <?php
-declare(strict_types=1);
+// WP-CLI eval-file uses eval() internally; strict_types cannot be declared there.
 /** Only run on disposable WordPress CI: simulate 2.1.16 DB 23 -> 2.1.17 DB 24. */
 if (!defined('WP_CLI') || !WP_CLI || !defined('OAI_DB_VERSION') || OAI_DB_VERSION!==24) {
     throw new RuntimeException('Disposable WP-CLI and Native DB schema 24 required');
