@@ -16,6 +16,7 @@ $dir=(string)getenv('OAI_F3_TRANSACTION_SYNC');
 if (!in_array($scenario,['editor_first','ai_first'],true) || !is_dir($dir) ||
     !in_array($phase,['seed','ai','editor','verify'],true))
     throw new RuntimeException('Missing F3 scenario/sync/phase');
+$GLOBALS['oai_f3tx_sync_dir']=$dir;
 $option='oai_f3_txn_'. $scenario;
 function f3tx_require($ok,$message) { if (!$ok) throw new RuntimeException($message); }
 function f3tx_ok($result,$message) {
@@ -23,11 +24,11 @@ function f3tx_ok($result,$message) {
     return $result;
 }
 function f3tx_signal($state) {
-    global $dir;
+    $dir=(string)$GLOBALS['oai_f3tx_sync_dir'];
     f3tx_require(file_put_contents($dir.'/'.$state,'1')===1,'Could not publish signal '.$state);
 }
 function f3tx_wait($state) {
-    global $dir;
+    $dir=(string)$GLOBALS['oai_f3tx_sync_dir'];
     for($i=0;$i<150;$i++) {
         if(file_exists($dir.'/'.$state))return;
         usleep(100000);
