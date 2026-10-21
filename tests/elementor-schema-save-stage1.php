@@ -14,6 +14,7 @@ function wp_json_encode($value,$flags=0) { return json_encode($value,$flags); }
 class OAI_Elementor {
     public static $trees = array(42=>array(array('id'=>'a','elType'=>'widget','settings'=>array('title'=>'Old'))));
     public static $fail = false;
+    public static $alter_save = false;
     public static function widget_schema($name) { return array('widget_type'=>$name,'controls'=>array('title'=>array('type'=>'text'))); }
     public static function get_data($id) { return self::$trees[$id] ?? new WP_Error('missing'); }
     public static function decode_create_nodes($data) {
@@ -23,6 +24,9 @@ class OAI_Elementor {
     }
     public static function save_document($id,$data) {
         if(self::$fail) return new WP_Error('write_failed');
+        if (self::$alter_save) {
+            $data[0]['settings']['title']='Sanitized by competing filter';
+        }
         self::$trees[$id]=$data; return true;
     }
 }
@@ -36,22 +40,60 @@ check(strlen($original['sha256'])===64,'snapshot invalid');
 $changed=array(array('id'=>'a','elType'=>'widget','settings'=>array('title'=>'New')));
 $proposal=$adapter::validate_replace($original['tree'],$changed,$original['sha256']);
 check(!is_wp_error($proposal),'Sandbox preparation failed');
+$reordered_original=$original['tree'];
+$reordered_original[0]=array('settings'=>array('title'=>'Old'),'elType'=>'widget','id'=>'a');
+check($adapter::same_tree($reordered_original,$original['tree']),'Associative Elementor keys should compare equal');
+check($adapter::tree_hash($reordered_original)===$original['sha256'],'Semantic hash must ignore associative key order');
+error_code($adapter::validate_replace($original['tree'],$reordered_original,$original['sha256']),'oai_noop');
+$reordered_new=$changed;
+$reordered_new[0]=array('settings'=>array('title'=>'New'),'elType'=>'widget','id'=>'a');
+check($adapter::same_tree($changed,$reordered_new),'Approved image should allow nonsemantic reordering');
+$node_order=array(
+ array('id'=>'x','elType'=>'widget','settings'=>array('title'=>'First')),
+ array('id'=>'y','elType'=>'widget','settings'=>array('title'=>'Second'))
+);
+$swapped=array_reverse($node_order);
+check(!$adapter::same_tree($node_order,$swapped),'Widget list order must remain significant');
+check(!$adapter::same_tree(array('n'=>1),array('n'=>'1')),'Settings scalar types must remain significant');
 error_code($adapter::validate_replace($original['tree'],$changed,str_repeat('0',64)),'oai_snapshot_mismatch');
 error_code($adapter::validate_replace($original['tree'],$original['tree'],$original['sha256']),'oai_noop');
 error_code($adapter::validate_replace($original['tree'],array('bad'),$original['sha256']),'invalid_node');
 error_code($adapter::apply_approved(42,$proposal),'oai_approval_required');
+$hijacked=$proposal;
+$hijacked['after'][0]['settings']['title']='Unapproved payload';
+error_code($adapter::apply_approved(42,$hijacked,true),'oai_change_integrity');
+check($adapter::snapshot(42)['tree']===$original['tree'],'tampered content must not be written');
+$bad_digest=$proposal;
+$bad_digest['before_sha256']=array('invalid');
+error_code($adapter::apply_approved(42,$bad_digest,true),'oai_invalid_change');
+check($adapter::snapshot(42)['tree']===$original['tree'],'malformed digest must not be written');
 check($adapter::snapshot(42)['tree']===$original['tree'],'approval bypass mutated page');
 OAI_Elementor::$trees[42][0]['settings']['title']='Human edit';
 error_code($adapter::apply_approved(42,$proposal,true),'oai_stale_target');
+OAI_Elementor::$trees[42]=$reordered_original;
+check($adapter::apply_approved(42,$proposal,true)===true,'Same content with reordered keys should not trigger a stale conflict');
+check($adapter::verify(42,$changed)['ok']===true,'Canonical saved content must verify');
+check($adapter::rollback_approved(42,$proposal,true)===true,'Canonical rollback after key shuffle');
 OAI_Elementor::$trees[42]=$original['tree'];
 OAI_Elementor::$fail=true;
 error_code($adapter::apply_approved(42,$proposal,true),'write_failed');
 check($adapter::snapshot(42)['tree']===$original['tree'],'failure mutated page');
 OAI_Elementor::$fail=false;
+OAI_Elementor::$alter_save=true;
+error_code($adapter::apply_approved(42,$proposal,true),'oai_save_verify');
+OAI_Elementor::$alter_save=false;
+OAI_Elementor::$trees[42]=$original['tree'];
 check($adapter::apply_approved(42,$proposal,true)===true,'approved apply failed');
 check($adapter::verify(42,$changed)['ok']===true,'verify failed');
 check($adapter::verify(42,$original['tree'])['ok']===false,'false positive verification');
 error_code($adapter::rollback_approved(42,$proposal),'oai_approval_required');
+$rollback_tamper=$proposal;
+$rollback_tamper['before'][0]['settings']['title']='Forged rollback';
+error_code($adapter::rollback_approved(42,$rollback_tamper,true),'oai_change_integrity');
+check($adapter::snapshot(42)['tree']===$changed,'tampered rollback changed the live document');
+$rollback_bad_hash=$proposal;
+$rollback_bad_hash['after_sha256']=array('bad');
+error_code($adapter::rollback_approved(42,$rollback_bad_hash,true),'oai_invalid_change');
 OAI_Elementor::$trees[42][0]['settings']['title']='Concurrent edit';
 error_code($adapter::rollback_approved(42,$proposal,true),'oai_rollback_conflict');
 OAI_Elementor::$trees[42]=$changed;
