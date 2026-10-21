@@ -77,3 +77,28 @@ cat "$WORK/f3-ai.log" "$WORK/f3-editor.log"
 grep -q 'F3_UNSAFE_RACE_REPRODUCED' "$WORK/f3-ai.log"
 grep -q 'F3_EDITOR_SAVED' "$WORK/f3-editor.log"
 OAI_DISPOSABLE_WP_TEST=1 OAI_F3_PHASE=verify wp_test eval-file "$PWD/tests/wordpress-elementor-external-editor-race.php"
+
+# Exploratory, NOT a release clearance: two interleavings using MySQL FOR UPDATE.
+# Even a successful transaction experiment does not prove that all Elementor
+# browser writes, save hooks, CSS and side effects are safely serialized.
+for F3_TX_SCENARIO in editor_first ai_first; do
+  F3_TX_SYNC="$WORK/f3-transaction-$F3_TX_SCENARIO"
+  mkdir -p "$F3_TX_SYNC"
+  OAI_DISPOSABLE_WP_TEST=1 OAI_F3_TRANSACTION_SCENARIO="$F3_TX_SCENARIO" OAI_F3_TRANSACTION_SYNC="$F3_TX_SYNC" OAI_F3_TRANSACTION_MODE=seed \
+    wp_test eval-file "$PWD/tests/wordpress-elementor-external-transaction.php"
+  (
+    OAI_DISPOSABLE_WP_TEST=1 OAI_F3_TRANSACTION_SCENARIO="$F3_TX_SCENARIO" OAI_F3_TRANSACTION_SYNC="$F3_TX_SYNC" OAI_F3_TRANSACTION_MODE=ai \
+      wp_test eval-file "$PWD/tests/wordpress-elementor-external-transaction.php" > "$WORK/f3-tx-ai.log" 2>&1
+  ) &
+  F3_TX_AI_PID=$!
+  (
+    OAI_DISPOSABLE_WP_TEST=1 OAI_F3_TRANSACTION_SCENARIO="$F3_TX_SCENARIO" OAI_F3_TRANSACTION_SYNC="$F3_TX_SYNC" OAI_F3_TRANSACTION_MODE=editor \
+      wp_test eval-file "$PWD/tests/wordpress-elementor-external-transaction.php" > "$WORK/f3-tx-editor.log" 2>&1
+  ) &
+  F3_TX_EDITOR_PID=$!
+  wait "$F3_TX_AI_PID" || { cat "$WORK/f3-tx-ai.log" "$WORK/f3-tx-editor.log"; exit 1; }
+  wait "$F3_TX_EDITOR_PID" || { cat "$WORK/f3-tx-ai.log" "$WORK/f3-tx-editor.log"; exit 1; }
+  cat "$WORK/f3-tx-ai.log" "$WORK/f3-tx-editor.log"
+  OAI_DISPOSABLE_WP_TEST=1 OAI_F3_TRANSACTION_SCENARIO="$F3_TX_SCENARIO" OAI_F3_TRANSACTION_SYNC="$F3_TX_SYNC" OAI_F3_TRANSACTION_MODE=verify \
+    wp_test eval-file "$PWD/tests/wordpress-elementor-external-transaction.php"
+done
