@@ -245,7 +245,7 @@ class OAI_Elementor {
     if($document && method_exists($document,'save')){
      // Elementor's own save pipeline expects an envelope. Passing the raw
      // root element array can return success while leaving _elementor_data
-     // empty on Elementor 4.x. The builder uses the canonical ['elements'=>...]
+     // empty on Elementor 4.x. WPVibe uses the canonical ['elements'=>...]
      // shape; we follow the same builder-owned save contract here.
      $result=$document->save(array('elements'=>$data));
      if(is_wp_error($result))return $result;
