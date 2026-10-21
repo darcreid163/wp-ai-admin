@@ -47,25 +47,14 @@ final class OAI_Elementor_External_Edit_Guard {
             }
         }
 
-        // Read persisted document from MySQL, bypassing WP meta object cache.
-        global $wpdb;
-        if (!isset($wpdb) || !isset($wpdb->postmeta) ||
-            !method_exists($wpdb,'prepare') || !method_exists($wpdb,'get_results')) {
-            return new WP_Error('oai_external_guard_db','Persistent document read unavailable',array('status'=>503));
-        }
-        $sql="SELECT meta_id, meta_value FROM {$wpdb->postmeta}
-            WHERE post_id=%d AND meta_key=%s ORDER BY meta_id ASC LIMIT 2";
-        $values=$wpdb->get_results($wpdb->prepare($sql,$post_id,'_elementor_data'),ARRAY_A);
-        if (!is_array($values) || count($values)!==1 ||
-            !is_string($values[0]['meta_value']??null)) {
-            return new WP_Error('oai_external_guard_meta',
-                'Missing or ambiguous document persistence record',array('status'=>409));
-        }
-        $persisted=json_decode($values[0]['meta_value'],true);
-        if (!is_array($persisted) ||
-            !OAI_Elementor_Schema_Save::same_tree($persisted,$expected_tree)) {
+        // One resolver for both the guard and final verification. A duplicate
+        // _elementor_data row must never be accepted by only one component.
+        $persisted=OAI_Elementor_Schema_Save::canonical_meta_row($post_id);
+        if (is_wp_error($persisted)) return $persisted;
+        if (!OAI_Elementor_Schema_Save::same_tree($persisted['tree'],$expected_tree)) {
             return new WP_Error('oai_external_guard_stale',
-                'Persistent Elementor document differs from approved original',array('status'=>409));
+                'Persistent Elementor document differs from approved original',
+                array('status'=>409));
         }
         $snapshot=OAI_Elementor_Schema_Save::snapshot($post_id);
         if (is_wp_error($snapshot)) return $snapshot;
@@ -76,7 +65,7 @@ final class OAI_Elementor_External_Edit_Guard {
         return array('safe_preflight_only'=>true,
             'post_id'=>$post_id,'actor'=>$actor,
             'document_sha256'=>OAI_Elementor_Schema_Save::tree_hash($expected_tree),
-            'meta_id'=>(int)$values[0]['meta_id'],
+            'meta_id'=>$persisted['meta_id'],
             'writer_exclusion_guaranteed'=>false);
     }
 }
