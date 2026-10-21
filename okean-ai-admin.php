@@ -3,6 +3,8 @@
  * Plugin Name: WP AI Admin
  * Description: Universal AI Admin for WordPress with sandbox, diff, preview, approval, verification, rollback, Elementor, WooCommerce, Gutenberg, files and MCP.
  * Version: 2.1.17
+ * License: GPL-2.0-or-later
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Author: Андриянов Н.Г.
  * Copyright: Андриянов Н.Г.
  */
