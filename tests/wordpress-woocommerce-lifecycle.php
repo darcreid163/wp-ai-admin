@@ -14,6 +14,14 @@ function wooOk($v,string $msg) {
 wp_set_current_user(1);
 $pid=0;$opid=0;
 try {
+    // A real Native Woo write sandbox requires licensing. Use only its
+    // documented local-owner activation on an isolated disposable WP site;
+    // never bypass OAI_License::can() or forge subscription signatures.
+    $unlicensed=OAI_License::can('woocommerce');
+    wooLife(is_wp_error($unlicensed) &&
+        $unlicensed->get_error_code()==='oai_license_required',
+        'Unlicensed Woo operation unexpectedly authorized');
+    wooOk(OAI_License::activate_local_owner(1),'Activate disposable local owner license');
     wooOk(OAI_AI_Lifecycle_Control::enable(1),'Enable scoped test lifecycle');
     $product=new WC_Product_Simple();
     $product->set_status('draft');
@@ -64,6 +72,7 @@ try {
 } finally {
     wp_set_current_user(1);
     OAI_AI_Lifecycle_Control::disable(1,'disposable_ci_teardown');
+    OAI_License::deactivate_local_owner();
     if ($pid) {
         $p=wc_get_product($pid);
         if ($p) $p->delete(true);
