@@ -68,6 +68,14 @@ if($phase==='seed') {
     $post=(int)get_option($option,0);
     f3tx_require($post>0,'Missing temporary post');
     f3tx_wait($scenario==='editor_first'?'ai_checked':'ai_locked');
+    if ($scenario==='ai_first') {
+        // The browser may have loaded the old page while the AI writer owns
+        // the transaction row lock. Its later save still carries stale data.
+        $read=f3tx_ok(OAI_Elementor_Schema_Save::snapshot($post),
+            'Human reads prior committed document while AI holds row lock');
+        f3tx_require(OAI_Elementor_Schema_Save::same_tree($read['tree'],$before),
+            'Human was not editing a stale original image');
+    }
     f3tx_signal('editor_attempting');
     f3tx_ok(OAI_Elementor::save_document($post,$human),'External Elementor document save');
     f3tx_signal('editor_done');
@@ -128,6 +136,11 @@ if($phase==='seed') {
         $live=f3tx_ok(OAI_Elementor_Schema_Save::snapshot($post),'Verify final document');
         f3tx_require(OAI_Elementor_Schema_Save::same_tree($live['tree'],$human),
             'External editor last write not retained');
+        if ($scenario==='ai_first') {
+            f3tx_require(!OAI_Elementor_Schema_Save::same_tree($live['tree'],$ai),
+                'Expected stale later human writer to overwrite AI to demonstrate reverse lost update');
+            echo "F3_TX_REVERSE_LOST_UPDATE_REPRODUCED\n";
+        }
         f3tx_require(get_post_status($post)==='draft','Experiment published a page');
         echo "F3_TX_EXPERIMENT_PASS ".$scenario."\n";
     } finally {
