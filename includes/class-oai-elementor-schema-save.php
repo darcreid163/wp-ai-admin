@@ -34,6 +34,43 @@ final class OAI_Elementor_Schema_Save {
             hash_equals(self::tree_hash($left), self::tree_hash($right));
     }
 
+    /**
+     * Authoritative single-row resolver for persisted Elementor page content.
+     * Guard, Verify and crash readback must not pick different duplicate rows.
+     * This method reads MySQL directly, not the WordPress object/meta cache.
+     * A duplicate, missing, malformed or non-list document fails closed.
+     *
+     * This is a read-only resolver; it DOES NOT serialize concurrent writers.
+     */
+    public static function canonical_meta_row($post_id) {
+        global $wpdb;
+        $post_id=absint($post_id);
+        if (!$post_id || !isset($wpdb) || !isset($wpdb->postmeta) ||
+            !method_exists($wpdb,'prepare') || !method_exists($wpdb,'get_results')) {
+            return new WP_Error('oai_elementor_meta_unavailable',
+                'Persisted Elementor document cannot be checked',array('status'=>503));
+        }
+        $rows=$wpdb->get_results($wpdb->prepare(
+            "SELECT meta_id, meta_value FROM {$wpdb->postmeta}
+             WHERE post_id=%d AND meta_key=%s ORDER BY meta_id ASC LIMIT 2",
+            $post_id,'_elementor_data'
+        ),ARRAY_A);
+        if (!is_array($rows) || count($rows)!==1 ||
+            !isset($rows[0]['meta_id']) ||
+            !is_string($rows[0]['meta_value']??null)) {
+            return new WP_Error('oai_elementor_meta_ambiguous',
+                'Elementor document metadata is missing or duplicated',
+                array('status'=>409));
+        }
+        $tree=json_decode($rows[0]['meta_value'],true);
+        if (!is_array($tree) || !array_is_list($tree) || json_last_error()!==JSON_ERROR_NONE) {
+            return new WP_Error('oai_elementor_meta_invalid',
+                'Persisted Elementor document is malformed',array('status'=>409));
+        }
+        return array('post_id'=>$post_id,'meta_id'=>absint($rows[0]['meta_id']),
+            'tree'=>$tree,'sha256'=>self::tree_hash($tree));
+    }
+
     public static function schema($widget_type) {
         if (!class_exists('OAI_Elementor')) {
             return new WP_Error('oai_elementor_missing', 'Elementor adapter is unavailable', array('status'=>503));
