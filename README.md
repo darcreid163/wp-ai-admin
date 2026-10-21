@@ -1,8 +1,8 @@
 # WP AI Admin
 
-**Development candidate: Native 2.1.17 / Cloud 0.3.10. Bounded per-object batch accounting is under local qualification; not approved for production.** See [batch design and limits](docs/BATCH-OBJECT-V1-2026-10-19.md).
+**Recovery candidate:** Native 2.1.17 archived from the 2026-10-19 release ZIP; Cloud Core 0.3.11 is recovered separately in the **private** Cloud repository. Neither recovery branch is an approved production update. See [Native artifact provenance and remaining gates](docs/RECOVERY-NATIVE-2.1.17-2026-10-21.md).
 
-> **Commercial Beta source of truth:** `main` = WP AI Admin 2.1.14 + Cloud Core 0.3.6. Public-release candidate branch = native 2.1.15 + Cloud Core 0.3.7. Older installable artifacts are retained only when they are still useful for rollback/compatibility; historical development remains available through Git history.
+> **Single source of truth for development:** the current verified Git history and release checks; installed sites may use different builds. Do **not** use older 2.1.14/2.1.15 Native or 0.3.6/0.3.7 Cloud installation instructions below. Those entries are kept only as chronological release history and migration context. Do not overwrite existing OAuth pairing or account usage using historical packages.
 
 ## 2.1.15 — Public release hardening
 
