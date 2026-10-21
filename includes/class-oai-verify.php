@@ -43,17 +43,16 @@ class OAI_Verify {
     $result['checks'][]=array('name'=>'document_read','ok'=>false,'message'=>$snapshot->get_error_code());
     return $result;
    }
-   // Bypass WP meta object cache for an independent persistence check.
-   global $wpdb;
-   if(!isset($wpdb) || !isset($wpdb->postmeta)){
-    $result['checks'][]=array('name'=>'meta_store','ok'=>false);
+   // The same strict resolver is used by the pre-save guard: a duplicate
+   // persisted document row cannot silently pass by selecting the latest.
+   $rowdata=OAI_Elementor_Schema_Save::canonical_meta_row($post_id);
+   if(is_wp_error($rowdata)){
+    $result['checks'][]=array('name'=>'elementor_persistent_meta','ok'=>false,
+        'message'=>$rowdata->get_error_code());
     return $result;
    }
-   $raw=$wpdb->get_var($wpdb->prepare(
-     "SELECT meta_value FROM {$wpdb->postmeta} WHERE post_id=%d AND meta_key=%s ORDER BY meta_id DESC LIMIT 1",
-     $post_id,'_elementor_data'
-   ));
-   $persisted=is_string($raw)?json_decode($raw,true):null;
+   $persisted=$rowdata['tree'];
+   $result['meta_row_id']=$rowdata['meta_id'];
    $result['current']=$snapshot['tree'];
    $api_match=OAI_Elementor_Schema_Save::same_tree($snapshot['tree'],$expected);
    $db_match=is_array($persisted)&&OAI_Elementor_Schema_Save::same_tree($persisted,$expected);
