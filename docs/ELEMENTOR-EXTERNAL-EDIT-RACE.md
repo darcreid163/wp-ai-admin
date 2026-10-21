@@ -47,3 +47,15 @@ These checks do not prevent another writer after the last read. WordPress edit l
 - Issue #14 independently tracks durable execution proof, crash recovery and accounting: https://github.com/darcreid163/wp-ai-admin/issues/14 .
 
 The draft PR's installable CI archive is not an approved production release.
+
+## 2026-10-21 experimental transaction results — not a production solution
+
+A separate `tests/wordpress-elementor-external-transaction.php` runs exploratory MySQL InnoDB row-level `SELECT ... FOR UPDATE` experiments with **two independent WP-CLI processes** against disposable WordPress and real Elementor, in both the pinned WordPress 7.0.6 + Elementor 4.3.3 stack and the latest stack.
+
+- **External editor commits first:** the AI process had already passed its initial snapshot check, but on acquiring the DB row lock it re-reads the changed persisted Elementor image and aborts rather than overwriting it.
+- **AI locks first:** the human editor's later `save_document()` operation waits for the row lock; the AI commits its document transaction first, the human write completes later. This demonstrates serialized DB-row writes, **not application-level version conflict protection**.
+- **Critical reverse lost-update:** the human editor reads an earlier committed page image while the AI transaction is still open, then saves that stale image after the AI commits. Its last write can erase the AI's approved change, even though the row lock serialized the writes. The fixture explicitly labels this `F3_TX_REVERSE_LOST_UPDATE_REPRODUCED`; this remains a security/data-integrity blocker.
+
+Initial experiment [CI #39546442955](https://github.com/darcreid163/wp-ai-admin/actions/runs/39546442955) passed PHP 8.2/8.3/8.4, pinned/latest WP, and ZIP artifact build. The hardened reverse-loss assertion is on a **later commit**, requiring its own CI before being claimed verified.
+
+**Conclusion:** transactional row locking by the AI cannot make a non-cooperating, stale-content human writer safe. Real no-lost-update semantics require both writers to check a shared expected version/ETag or to reject divergent revisions; enforcing this might require Elementor UI/editor integration, independent peer review, and extensive compatibility tests. No production lock or transaction code has been introduced. The full-document executor stays disabled except disposable CI.
