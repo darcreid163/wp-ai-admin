@@ -230,3 +230,6 @@ class OAI_Woodmart {
  }
 }
 
+
+
+require_once __DIR__ . '/class-oai-woodmart-header.php';
