@@ -110,16 +110,21 @@ class OAI_Woodmart_Header {
   foreach($nodes as &$node){
    if(!is_array($node))continue;
    if((string)($node['id']??'')===(string)$row_id && (string)($node['type']??'')==='row'){
-    foreach(($node['content']??array()) as $index=>&$column){
+    if(!isset($node['content'])||!is_array($node['content']))return;
+    foreach($node['content'] as &$column){
      if(!is_array($column) || (string)($column['id']??'')!==(string)$column_id)continue;
-     if((string)($column['type']??'')!=='column')return;
-     if(!empty($column['content']))return;
+     if((string)($column['type']??'')!=='column'){unset($column);return;}
+     if(!empty($column['content'])){unset($column);return;}
      $column['content']=array($element);
      $found=true;
+     unset($column);
+     unset($node);
      return;
     }
+    unset($column);
    }
    if(isset($node['content']) && is_array($node['content']))self::insert_into_row($node['content'],$row_id,$column_id,$element,$found);
+   if($found){unset($node);return;}
   }
   unset($node);
  }
