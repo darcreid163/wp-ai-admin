@@ -169,6 +169,8 @@ class OAI_Woodmart_Header {
   $menu_id=absint($input['menu_id']??0);
   $align=sanitize_key((string)($input['align']??'center'));
   if($row_id===''||$column_id===''||!$menu_id)return new WP_Error('oai_woodmart_header_input','row_id, column_id and menu_id are required',array('status'=>422));
+  $default=defined('WOODMART_HB_DEFAULT_ID')?(string)WOODMART_HB_DEFAULT_ID:'default_header';
+  if($id!==$default||$row_id!=='general-header'||$column_id!=='column9')return new WP_Error('oai_woodmart_header_target','Only the inspected empty desktop general-header/column9 target is currently supported',array('status'=>409));
   if(!in_array($align,array('left','center','right'),true))return new WP_Error('oai_woodmart_header_align','Unsupported menu alignment',array('status'=>422));
   $menu=wp_get_nav_menu_object($menu_id);
   if(!$menu)return new WP_Error('oai_woodmart_header_menu','Selected WordPress menu does not exist',array('status'=>404));
@@ -206,6 +208,7 @@ class OAI_Woodmart_Header {
      'woodmart_header_row_id'=>$row_id,
      'woodmart_header_column_id'=>$column_id,
      'woodmart_header_menu_id'=>$menu_id,
+     'woodmart_header_align'=>$align,
      'woodmart_header_theme_version'=>(string)WOODMART_VERSION,
      'woodmart_header_context_sha256'=>self::context($id),
     ),
@@ -252,7 +255,8 @@ class OAI_Woodmart_Header {
   $row_id=sanitize_key((string)($meta['woodmart_header_row_id']??''));
   $column_id=sanitize_key((string)($meta['woodmart_header_column_id']??''));
   $menu_id=absint($meta['woodmart_header_menu_id']??0);
-  if($row_id===''||$column_id===''||!$menu_id)return new WP_Error('oai_woodmart_header_meta','Header operation metadata is incomplete',array('status'=>422));
+  $align=sanitize_key((string)($meta['woodmart_header_align']??'center'));
+  if($row_id!=='general-header'||$column_id!=='column9'||$menu_id<1||!in_array($align,array('left','center','right'),true))return new WP_Error('oai_woodmart_header_meta','Header operation metadata is incomplete or outside the inspected desktop target',array('status'=>422));
   $found=false;
   $content=self::column_content($applied['structure']??array(),$row_id,$column_id,$found);
   if(!$found || count($content)!==1 || (string)($content[0]['type']??'')!=='mainmenu')return new WP_Error('oai_woodmart_header_element','Applied header must contain exactly one Mainmenu element in the approved empty column',array('status'=>422));
@@ -260,6 +264,10 @@ class OAI_Woodmart_Header {
   $params=$element['params']??array();
   $actual_menu=(string)($params['menu_id']['value']??'');
   if($actual_menu!==(string)$menu_id)return new WP_Error('oai_woodmart_header_menu','Mainmenu element does not reference the approved WordPress menu',array('status'=>422));
+  $builder=self::builder();if(is_wp_error($builder))return $builder;
+  $approved_element=self::mainmenu_element($builder,$menu_id,$align);if(is_wp_error($approved_element))return $approved_element;
+  $approved_element['id']=(string)($element['id']??'');
+  if(!OAI_REST::same_option_value($element,$approved_element))return new WP_Error('oai_woodmart_header_element_params','Mainmenu element contains parameters outside the approved theme defaults',array('status'=>422));
   $rebuilt=$base['structure']??array();
   $nodes=isset($rebuilt['content'])&&is_array($rebuilt['content'])?$rebuilt['content']:$rebuilt;
   $inserted=false;
