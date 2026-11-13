@@ -92,7 +92,7 @@ check(!is_wp_error(OAI_AI_Lifecycle_Control::enable(7)),'administrator can enabl
 
 $approved=OAI_AI_Lifecycle_Control::perform(42,'approve','gateway_client_first',7);
 check(!is_wp_error($approved),'operation creator can approve from first MCP client');
-check(isset($GLOBALS['wpdb']->approval['details']),'approval stores an immutable snapshot audit record');
+check(isset($GLOBALS['wpdb']->approval['details']),'approval stores the approved snapshot hash in audit');
 
 $applied=OAI_AI_Lifecycle_Control::perform(42,'apply','gateway_client_after_reconnect',7);
 check(!is_wp_error($applied),'same administrator can apply after MCP client/token rotation');
