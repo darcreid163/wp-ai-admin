@@ -187,7 +187,7 @@ class OAI_P0 {
    'object'=>(string)get_post_meta($item_id,'_menu_item_object',true),
    'object_id'=>absint(get_post_meta($item_id,'_menu_item_object_id',true)),
    'design_exists'=>$design_exists,
-   'design'=>$design_exists?(string)get_post_meta($item_id,'_menu_item_design',true):'',
+   'design'=>$design_exists?(string)get_post_meta($item_id,'_menu_item_design',true):'default',
    'block_exists'=>$block_exists,
    'block_id'=>$block_exists?absint(get_post_meta($item_id,'_menu_item_block',true)):0,
   );
@@ -205,7 +205,7 @@ class OAI_P0 {
   $block_id=absint($a['block_id']??0);
   if($design==='default'){
    if($block_id)return new WP_Error('oai_woodmart_mega_block','Default dropdown cannot reference an HTML Block',array('status'=>422));
-   $after=$before;$after['design_exists']=false;$after['design']='';$after['block_exists']=false;$after['block_id']=0;
+   $after=$before;$after['design_exists']=false;$after['design']='default';$after['block_exists']=false;$after['block_id']=0;
   }else{
    $block=get_post($block_id);
    if(!$block || $block->post_type!=='cms_block' || $block->post_status!=='publish')return new WP_Error('oai_woodmart_mega_block','Mega menu requires an already published WoodMart HTML Block',array('status'=>422,'block_id'=>$block_id));
