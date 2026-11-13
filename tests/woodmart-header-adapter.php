@@ -97,6 +97,7 @@ namespace {
     check_header($plan['before']['structure']===$GLOBALS['test_headers']['default_header']['structure'],'planning does not mutate the live header fixture');
     $meta=$plan['meta'];
     $written=OAI_Woodmart_Header::write('default_header',$plan['after'],$plan['before'],$meta,false);
+    if(is_wp_error($written))fwrite(STDERR,'WRITE ERROR: '.$written->get_error_code().' '.$written->get_error_message().' '.wp_json_encode($written->get_error_data())."\\n");
     check_header(!is_wp_error($written),'approved Mainmenu insertion writes through the native Header Factory');
     list($exists,$current)=OAI_Woodmart_Header::current('default_header');
     check_header($exists && OAI_REST::same_option_value($current,$plan['after']),'saved header matches the planned snapshot');
