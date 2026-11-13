@@ -12,7 +12,7 @@ function get_option($key,$default=false){return $GLOBALS['test_options'][$key]??
 function update_option($key,$value,$autoload=null){$GLOBALS['test_options'][$key]=$value;return true;}
 function wp_json_encode($value,$flags=0){return json_encode($value,$flags);}
 function wp_salt($scheme='auth'){return 'test-site-auth-salt';}
-function home_url($path='/'){return 'https://example.test'.$path;}
+function home_url($path='/'){return ($GLOBALS['test_home']??'https://example.test').$path;}
 function site_url($path='/'){return 'https://example.test/wp'.$path;}
 function get_current_blog_id(){return 1;}
 function untrailingslashit($value){return rtrim((string)$value,'/');}
@@ -105,9 +105,6 @@ OAI_DB::$row['after_data']='"after"';
 $wrong_user=OAI_AI_Lifecycle_Control::perform(42,'apply','gateway_client_other_user',8);
 check(is_wp_error($wrong_user) && $wrong_user->get_error_code()==='oai_ai_lifecycle_owner','different administrator is denied');
 
-$old_home='https://example.test';
-$GLOBALS['test_home']='https://example.test';
-function test_change_home_url(){return $GLOBALS['test_home'];}
 $GLOBALS['test_home']='https://other.example.test';
 $wrong_site=OAI_AI_Lifecycle_Control::perform(42,'apply','gateway_client_other_site',7);
 check(is_wp_error($wrong_site) && $wrong_site->get_error_code()==='oai_ai_lifecycle_approval_mismatch','approval cannot be replayed on another site context');
