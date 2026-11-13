@@ -136,7 +136,7 @@ class OAI_Woodmart_Header {
  private static function mainmenu_element($builder,$menu_id,$align){
   $class=$builder->elements->elements_classes['Mainmenu'];
   $definition=$class->get_args();
-  if(empty($definition['addable']) || empty($definition['params']) || !is_array($definition['params'])){
+  if(empty($definition['params']) || !is_array($definition['params'])){
    return new WP_Error('oai_woodmart_mainmenu_schema','Mainmenu element is not addable or has no parameter schema',array('status'=>409));
   }
   $params=$definition['params'];
@@ -235,10 +235,18 @@ class OAI_Woodmart_Header {
   return array();
  }
 
+ private static function valid_snapshot_hash($state){
+  if(!is_array($state)||!isset($state['snapshot_sha256']))return false;
+  $copy=$state;unset($copy['snapshot_sha256']);
+  $hash=hash('sha256',wp_json_encode($copy,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE));
+  return hash_equals((string)$state['snapshot_sha256'],$hash);
+ }
+
  private static function validate_transition($expected,$desired,$meta,$restore){
   $base=$restore?$desired:$expected;
   $applied=$restore?$expected:$desired;
   if(!is_array($base)||!is_array($applied))return new WP_Error('oai_woodmart_header_transition','Invalid header transition snapshots',array('status'=>422));
+  if(!self::valid_snapshot_hash($base)||!self::valid_snapshot_hash($applied))return new WP_Error('oai_woodmart_header_snapshot_hash','Header snapshot hash is invalid',array('status'=>409));
   if((string)($base['id']??'')!==(string)($applied['id']??'') || (string)($base['name']??'')!==(string)($applied['name']??''))return new WP_Error('oai_woodmart_header_transition','Header identity/name cannot be changed by this operation',array('status'=>422));
   if(!OAI_REST::same_option_value($base['settings']??null,$applied['settings']??null))return new WP_Error('oai_woodmart_header_settings','Header settings cannot be changed by a main-menu insertion operation',array('status'=>422));
   $row_id=sanitize_key((string)($meta['woodmart_header_row_id']??''));
