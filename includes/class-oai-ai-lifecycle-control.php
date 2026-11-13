@@ -151,7 +151,7 @@ class OAI_AI_Lifecycle_Control {
  }
 
  /**
-  * The immutable "created" audit event is the authoritative owner record for
+  * The original "created" audit event is the authoritative owner record for
   * legacy operations. If meta_data also carries created_by, both must agree.
   * Missing or ambiguous creator evidence fails closed.
   */
