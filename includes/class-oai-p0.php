@@ -168,6 +168,7 @@ class OAI_P0 {
   return self::op('menu_move_item',(string)$item_id,$before,$after,array('item_id'=>$item_id),true);
  }
  public static function woodmart_mega_menu_snapshot($item_id){
+  if(!current_user_can('edit_theme_options'))return new WP_Error('oai_menu_permission','edit_theme_options capability required',array('status'=>403));
   $item_id=absint($item_id);
   $p=get_post($item_id);
   if(!$p || $p->post_type!=='nav_menu_item')return new WP_Error('oai_menu_item_not_found','WordPress menu item not found',array('status'=>404));
