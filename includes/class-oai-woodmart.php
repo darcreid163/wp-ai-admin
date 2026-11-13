@@ -16,11 +16,12 @@ class OAI_Woodmart {
    && class_exists('XTS\\AI_Abilities\\Theme_Settings\\Devices_Value');
  }
  public static function status($req=null){
+  $header_status=class_exists('OAI_Woodmart_Header')?OAI_Woodmart_Header::status():array('available'=>false,'error'=>array('code'=>'adapter_not_loaded'));
   return array('adapter'=>'woodmart','available'=>self::available(),'theme_version'=>defined('WOODMART_VERSION')?WOODMART_VERSION:null,
    'native_mcp_version'=>defined('WOODMART_MCP_VERSION')?WOODMART_MCP_VERSION:null,'supported_native_mcp'=>'1.0.1',
    'write_layer'=>'base','sandbox_only'=>true,'rollback'=>'exact_field_storage_and_absence',
    'conflict_scope'=>'entire_base_option_presets_field_schema_and_theme_identity',
-   'supported_types'=>self::TYPES,'headers_and_layouts'=>'next_phase');
+   'supported_types'=>self::TYPES,'headers_and_layouts'=>!empty($header_status['available'])?'sandbox_supported':'next_phase','header_builder'=>$header_status);
  }
  private static function guard(){
   if(!current_user_can('manage_options'))return new WP_Error('oai_woodmart_permission','Managing theme settings requires manage_options',array('status'=>403));
