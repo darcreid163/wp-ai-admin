@@ -33,6 +33,8 @@ jobs:
         run: php tests/woocommerce-stock-rounding.php
       - name: Option normalization
         run: php tests/option-normalization.php
+      - name: Durable AI Lifecycle principal authorization
+        run: php tests/ai-lifecycle-principal.php
       - name: Control plane entitlements
         run: php tests/control-plane-entitlements.php
       - name: Expanded read-only CLI commands (Tier B)
