@@ -146,6 +146,7 @@ class OAI_Woodmart_Header {
    return new WP_Error('oai_woodmart_mainmenu_menu_option','Selected menu is not in the WoodMart Mainmenu element options',array('status'=>422,'menu_id'=>$menu_id));
   }
   $params['menu_id']['value']=(string)$menu_id;
+  if(!isset($params['menu_align']))return new WP_Error('oai_woodmart_mainmenu_align','WoodMart Mainmenu element does not expose a supported alignment control',array('status'=>409));
   if(isset($params['menu_align'])){
    $options=$params['menu_align']['options']??array();
    if(is_array($options) && $options && !array_key_exists($align,$options) && !in_array($align,$options,true)){
@@ -245,6 +246,20 @@ class OAI_Woodmart_Header {
   return hash_equals((string)$state['snapshot_sha256'],$hash);
  }
 
+ private static function element_matches_schema($actual,$expected){
+  if(!is_array($actual)||!is_array($expected))return false;
+  if((string)($actual['id']??'')!==(string)($expected['id']??'') || (string)($actual['type']??'')!==(string)($expected['type']??''))return false;
+  $actual_params=$actual['params']??array();$expected_params=$expected['params']??array();
+  if(!is_array($actual_params)||!is_array($expected_params))return false;
+  if(array_diff(array_keys($actual_params),array_keys($expected_params)) || array_diff(array_keys($expected_params),array_keys($actual_params)))return false;
+  foreach($expected_params as $key=>$definition){
+   $actual_param=$actual_params[$key]??null;
+   if(!is_array($actual_param)||!array_key_exists('value',$definition)||!array_key_exists('value',$actual_param))return false;
+   if(!OAI_REST::same_option_value($actual_param['value'],$definition['value']))return false;
+  }
+  return true;
+ }
+
  private static function validate_transition($expected,$desired,$meta,$restore){
   $base=$restore?$desired:$expected;
   $applied=$restore?$expected:$desired;
@@ -267,7 +282,7 @@ class OAI_Woodmart_Header {
   $builder=self::builder();if(is_wp_error($builder))return $builder;
   $approved_element=self::mainmenu_element($builder,$menu_id,$align);if(is_wp_error($approved_element))return $approved_element;
   $approved_element['id']=(string)($element['id']??'');
-  if(!OAI_REST::same_option_value($element,$approved_element))return new WP_Error('oai_woodmart_header_element_params','Mainmenu element contains parameters outside the approved theme defaults',array('status'=>422));
+  if(!self::element_matches_schema($element,$approved_element))return new WP_Error('oai_woodmart_header_element_params','Mainmenu element contains parameters outside the approved theme defaults',array('status'=>422));
   $rebuilt=$base['structure']??array();
   $nodes=isset($rebuilt['content'])&&is_array($rebuilt['content'])?$rebuilt['content']:$rebuilt;
   $inserted=false;
