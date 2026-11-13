@@ -302,7 +302,7 @@ class OAI_MCP {
   $schemas['menu.move_item_sandbox']=array('type'=>'object','required'=>array('item_id'),'additionalProperties'=>false,'properties'=>array('item_id'=>array('type'=>'integer','minimum'=>1),'parent'=>array('type'=>'integer','minimum'=>0),'position'=>array('type'=>'integer','minimum'=>0)));
   $schemas['menu.assign_location_sandbox']=array('type'=>'object','required'=>array('location','menu_id'),'additionalProperties'=>false,'properties'=>array('location'=>array('type'=>'string','minLength'=>1),'menu_id'=>array('type'=>'integer','minimum'=>0)));
   $read=array(
-   'woodmart.status','woodmart.list_settings','woodmart.get_setting','woodmart.header.status','woodmart.header.get',
+   'woodmart.status','woodmart.list_settings','woodmart.get_setting','woodmart.header.status','woodmart.header.get','woodmart.mega_menu.get',
    'wp.get_site','wp.inspect_html','wp.visual_qa_result','wp.get_theme_mods','wp.list_plugins','wp.list_themes','wp.list_post_types','wp.list_taxonomies','wp.list_media','wp.list_menus','wp.list_options','wp.list_users','wp.list_comments','wp.list_widgets','wp.health','wp.diagnostics','wp.list_operations','operation.get','operation.verify','operation.proof','operation.preview_link',
    'wp.list_files','wp.search_files','wp.execution_readiness','elementor.get_structure','elementor.get_widget','elementor.get_schema','elementor.get_globals','elementor.get_container','elementor.get_page_layout','woocommerce.get_product','woocommerce.get_product_full','operation.get_receipt',
    'gutenberg.get_blocks','gutenberg.get_outline','gutenberg.locate_block','builder.catalog','builder.detect','system.capabilities',
@@ -315,6 +315,7 @@ class OAI_MCP {
    'woodmart.get_setting'=>'Read one Woodmart setting with native value format, saved base value and preset-override flag.',
    'woodmart.header.status'=>'Read the version-gated WoodMart Header Builder adapter status.',
    'woodmart.header.get'=>'Read the active or selected WoodMart header layout and its snapshot hash.',
+   'woodmart.mega_menu.get'=>'Read the WoodMart mega-menu metadata snapshot for one WordPress menu item.',
    'wp.inspect_html'=>'Inspect public or authenticated draft server-rendered HTML. JavaScript is not executed.',
    'wp.visual_qa_result'=>'Read a completed browser Visual QA report for desktop, tablet and mobile viewports.',
    'wp.file.outline'=>'List file landmarks and line numbers without returning the full file; use file.read with a line range next.',
@@ -399,6 +400,7 @@ class OAI_MCP {
    case 'woodmart_status':$out=OAI_Woodmart::status();break;
    case 'woodmart_header_status':$out=OAI_Woodmart_Header::status();break;
    case 'woodmart_header_get':$out=OAI_Woodmart_Header::get((string)($a['header_id']??''));break;
+   case 'woodmart_mega_menu_get':$out=OAI_P0::woodmart_mega_menu_snapshot(absint($a['item_id']??0));break;
    case 'woodmart_header_add_main_menu_sandbox':
     $rr=new WP_REST_Request('POST','/okean-ai/v1/sandbox');
     $rr->set_param('type','woodmart_header_layout');
