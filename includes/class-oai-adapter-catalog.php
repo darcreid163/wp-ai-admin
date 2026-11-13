@@ -9,7 +9,7 @@ if (!defined('ABSPATH')) exit;
 class OAI_Adapter_Catalog {
  public static function definitions(){
   return array(
-   'woodmart'=>array('kind'=>'theme','status'=>'partial','surface'=>'theme_settings','description'=>'Woodmart base settings through native normalization and sandbox Apply/Verify/Rollback; headers/layouts are not yet writable.'),
+   'woodmart'=>array('kind'=>'theme','status'=>'partial','surface'=>'theme_settings_and_header_builder','description'=>'WoodMart base settings plus a version-gated Header Builder Mainmenu insertion and whitelisted mega-menu HTML Block assignment through sandbox Apply/Verify/Rollback; arbitrary header/layout edits remain unsupported.'),
    'elementor'=>array('kind'=>'builder','status'=>'available','surface'=>'page_builder','description'=>'Elementor builder-owned document read/save pipeline.'),
    'gutenberg'=>array('kind'=>'builder','status'=>'available','surface'=>'block_editor','description'=>'Native Gutenberg/freeform post content resolver and sandbox patching.'),
    'woocommerce'=>array('kind'=>'platform','status'=>'available','surface'=>'commerce','description'=>'WooCommerce product read and sandbox field patch pipeline.'),

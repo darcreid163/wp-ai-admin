@@ -33,6 +33,12 @@ jobs:
         run: php tests/woocommerce-stock-rounding.php
       - name: Option normalization
         run: php tests/option-normalization.php
+      - name: Durable AI Lifecycle principal authorization
+        run: php tests/ai-lifecycle-principal.php
+      - name: WoodMart Header Builder sandbox and rollback
+        run: php tests/woodmart-header-adapter.php
+      - name: WoodMart mega-menu metadata and rollback
+        run: php tests/woodmart-mega-menu.php
       - name: Control plane entitlements
         run: php tests/control-plane-entitlements.php
       - name: Expanded read-only CLI commands (Tier B)
