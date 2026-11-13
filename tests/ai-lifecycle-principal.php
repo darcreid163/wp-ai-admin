@@ -5,6 +5,7 @@
  */
 define('ABSPATH', __DIR__);
 define('OAI_BUILD_ID', 'lifecycle-test-build');
+define('ARRAY_A', 'ARRAY_A');
 
 function absint($v){return abs((int)$v);}
 function user_can($id,$cap){return $cap==='manage_options' && in_array((int)$id,array(7,8),true);}
@@ -95,6 +96,9 @@ check(isset($GLOBALS['wpdb']->approval['details']),'approval stores an immutable
 
 $applied=OAI_AI_Lifecycle_Control::perform(42,'apply','gateway_client_after_reconnect',7);
 check(!is_wp_error($applied),'same administrator can apply after MCP client/token rotation');
+
+$rolled_back=OAI_AI_Lifecycle_Control::perform(42,'rollback','gateway_client_after_second_reconnect',7);
+check(!is_wp_error($rolled_back),'same administrator can rollback after another MCP client rotation');
 
 OAI_DB::$row['status']='approved';
 OAI_DB::$row['after_data']='"tampered"';
