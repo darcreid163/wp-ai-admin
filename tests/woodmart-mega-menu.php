@@ -44,22 +44,22 @@ $before=OAI_P0::woodmart_mega_menu_snapshot(501);
 check_mega(!is_wp_error($before) && empty($before['design_exists']) && empty($before['block_exists']),'reads an ordinary menu item without inventing mega-menu metadata');
 
 $after=array('item_id'=>501,'menu_id'=>20,'design_exists'=>true,'design'=>'full-width','block_exists'=>true,'block_id'=>900);
-$write=OAI_P0::write('woodmart_mega_menu','501',$after,array());
+$write=OAI_P0::write('woodmart_mega_menu','501',$after,array('woodmart_version'=>'8.6.2'));
 check_mega(!is_wp_error($write),'assigns a published HTML Block using the WoodMart metadata whitelist');
 $current=OAI_P0::woodmart_mega_menu_snapshot(501);
 check_mega(OAI_Verify::same($current,$after),'mega-menu metadata verifies after write');
 
-$rollback=OAI_P0::write('woodmart_mega_menu','501',$before,array());
+$rollback=OAI_P0::write('woodmart_mega_menu','501',$before,array('woodmart_version'=>'8.6.2'));
 check_mega(!is_wp_error($rollback),'rollback restores absent mega-menu metadata');
 $restored=OAI_P0::woodmart_mega_menu_snapshot(501);
 check_mega(OAI_Verify::same($restored,$before),'rollback verifies the original menu item metadata');
 
 $draft=$after;$draft['block_id']=901;
-$blocked=OAI_P0::write('woodmart_mega_menu','501',$draft,array());
+$blocked=OAI_P0::write('woodmart_mega_menu','501',$draft,array('woodmart_version'=>'8.6.2'));
 check_mega(is_wp_error($blocked) && $blocked->get_error_code()==='oai_woodmart_mega_block','draft HTML Blocks cannot be attached to public mega menus');
 
 $invalid=$after;$invalid['design']='unknown';
-$blocked_design=OAI_P0::write('woodmart_mega_menu','501',$invalid,array());
+$blocked_design=OAI_P0::write('woodmart_mega_menu','501',$invalid,array('woodmart_version'=>'8.6.2'));
 check_mega(is_wp_error($blocked_design) && $blocked_design->get_error_code()==='oai_woodmart_mega_design','unknown WoodMart dropdown designs are rejected');
 
 echo "All WoodMart mega-menu metadata regression tests passed.\n";
