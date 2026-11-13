@@ -95,6 +95,8 @@ namespace {
     $plan=OAI_Woodmart_Header::plan('default_header',$input);
     check_header(!is_wp_error($plan),'valid Mainmenu insertion can be planned');
     check_header($plan['before']['structure']===$GLOBALS['test_headers']['default_header']['structure'],'planning does not mutate the live header fixture');
+    $planned_content=$plan['after']['structure']['content'][0]['content'][1]['content']??array();
+    check_header(count($planned_content)===1 && ($planned_content[0]['type']??'')==='mainmenu','plan inserts Mainmenu only into the approved empty desktop column');
     $meta=$plan['meta'];
     $written=OAI_Woodmart_Header::write('default_header',$plan['after'],$plan['before'],$meta,false);
     if(is_wp_error($written))fwrite(STDERR,'WRITE ERROR: '.$written->get_error_code().' '.$written->get_error_message().' '.wp_json_encode($written->get_error_data())."\\n");
