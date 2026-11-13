@@ -260,6 +260,7 @@ class OAI_P0 {
   if($type==='media_upload'){delete_post_meta(absint($target),'_oai_sandbox_artifact');return wp_update_post(array('ID'=>absint($target),'post_status'=>'inherit'),true);}
   if($type==='menu_create'){delete_term_meta(absint($target),'_oai_sandbox_artifact');return true;}
   if($type==='woodmart_mega_menu'){
+   if(!defined('WOODMART_VERSION') || !hash_equals((string)($meta['woodmart_version']??''),(string)WOODMART_VERSION) || (string)WOODMART_VERSION!=='8.6.2')return new WP_Error('oai_woodmart_mega_context','WoodMart theme version changed after the mega-menu sandbox was created',array('status'=>409));
    $item_id=absint($target);$current=self::woodmart_mega_menu_snapshot($item_id);if(is_wp_error($current))return $current;
    if(!is_array($v) || absint($v['item_id']??0)!==$item_id || absint($v['menu_id']??0)!==absint($current['menu_id']))return new WP_Error('oai_woodmart_mega_snapshot','Invalid mega-menu snapshot or menu relation changed',array('status'=>409));
    $design=sanitize_key((string)($v['design']??''));$allowed=array('default','full-width','full-height','sized','aside');
