@@ -221,6 +221,7 @@ class OAI_Woodmart_Header {
 
  private static function column_content($nodes,$row_id,$column_id,&$found=false){
   if(!is_array($nodes))return array();
+  if(isset($nodes['content'])&&is_array($nodes['content'])&&!isset($nodes['id']))return self::column_content($nodes['content'],$row_id,$column_id,$found);
   foreach($nodes as $node){
    if(!is_array($node))continue;
    if((string)($node['id']??'')===(string)$row_id && (string)($node['type']??'')==='row'){
