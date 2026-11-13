@@ -215,7 +215,54 @@ class OAI_Woodmart_Header {
   }
  }
 
- public static function write($id,$desired,$expected){
+ private static function column_content($nodes,$row_id,$column_id,&$found=false){
+  if(!is_array($nodes))return array();
+  foreach($nodes as $node){
+   if(!is_array($node))continue;
+   if((string)($node['id']??'')===(string)$row_id && (string)($node['type']??'')==='row'){
+    foreach(($node['content']??array()) as $column){
+     if(is_array($column) && (string)($column['id']??'')===(string)$column_id && (string)($column['type']??'')==='column'){
+      $found=true;
+      return is_array($column['content']??null)?$column['content']:array();
+     }
+    }
+   }
+   if(isset($node['content']) && is_array($node['content'])){
+    $value=self::column_content($node['content'],$row_id,$column_id,$found);
+    if($found)return $value;
+   }
+  }
+  return array();
+ }
+
+ private static function validate_transition($expected,$desired,$meta,$restore){
+  $base=$restore?$desired:$expected;
+  $applied=$restore?$expected:$desired;
+  if(!is_array($base)||!is_array($applied))return new WP_Error('oai_woodmart_header_transition','Invalid header transition snapshots',array('status'=>422));
+  if((string)($base['id']??'')!==(string)($applied['id']??'') || (string)($base['name']??'')!==(string)($applied['name']??''))return new WP_Error('oai_woodmart_header_transition','Header identity/name cannot be changed by this operation',array('status'=>422));
+  if(!OAI_REST::same_option_value($base['settings']??null,$applied['settings']??null))return new WP_Error('oai_woodmart_header_settings','Header settings cannot be changed by a main-menu insertion operation',array('status'=>422));
+  $row_id=sanitize_key((string)($meta['woodmart_header_row_id']??''));
+  $column_id=sanitize_key((string)($meta['woodmart_header_column_id']??''));
+  $menu_id=absint($meta['woodmart_header_menu_id']??0);
+  if($row_id===''||$column_id===''||!$menu_id)return new WP_Error('oai_woodmart_header_meta','Header operation metadata is incomplete',array('status'=>422));
+  $found=false;
+  $content=self::column_content($applied['structure']??array(),$row_id,$column_id,$found);
+  if(!$found || count($content)!==1 || (string)($content[0]['type']??'')!=='mainmenu')return new WP_Error('oai_woodmart_header_element','Applied header must contain exactly one Mainmenu element in the approved empty column',array('status'=>422));
+  $element=$content[0];
+  $params=$element['params']??array();
+  $actual_menu=(string)($params['menu_id']['value']??'');
+  if($actual_menu!==(string)$menu_id)return new WP_Error('oai_woodmart_header_menu','Mainmenu element does not reference the approved WordPress menu',array('status'=>422));
+  $rebuilt=$base['structure']??array();
+  $nodes=isset($rebuilt['content'])&&is_array($rebuilt['content'])?$rebuilt['content']:$rebuilt;
+  $inserted=false;
+  self::insert_into_row($nodes,$row_id,$column_id,$element,$inserted);
+  if(!$inserted)return new WP_Error('oai_woodmart_header_column','Approved target column is no longer empty',array('status'=>409));
+  if(isset($rebuilt['content']))$rebuilt['content']=$nodes;else$rebuilt=$nodes;
+  if(!OAI_REST::same_option_value($rebuilt,$applied['structure']??null))return new WP_Error('oai_woodmart_header_unapproved_diff','Header operation contains changes beyond the approved Mainmenu insertion',array('status'=>422));
+  return true;
+ }
+
+ public static function write($id,$desired,$expected,$meta=array(),$restore=false){
   if(!current_user_can('manage_options'))return new WP_Error('oai_woodmart_header_permission','manage_options capability required',array('status'=>403));
   $builder=self::builder();
   if(is_wp_error($builder))return $builder;
@@ -223,34 +270,28 @@ class OAI_Woodmart_Header {
   if(is_wp_error($id))return $id;
   if(!is_array($desired)||!is_array($expected)||!isset($desired['structure'],$desired['settings'],$desired['name']))return new WP_Error('oai_woodmart_header_snapshot','Header snapshots are incomplete',array('status'=>422));
   if(!hash_equals(self::context($id),(string)($desired['context_sha256']??'')) || !hash_equals(self::context($id),(string)($expected['context_sha256']??'')))return new WP_Error('oai_woodmart_header_context','WoodMart theme/header context changed after planning',array('status'=>409));
+  $transition=self::validate_transition($expected,$desired,$meta,$restore);
+  if(is_wp_error($transition))return $transition;
   $lock_key='oai_wd_header_lock_'.substr(hash('sha256',$id),0,32);
   $lock=array('token'=>wp_generate_uuid4(),'expires'=>time()+120);
   $existing=get_option($lock_key,false);
   if(is_array($existing) && absint($existing['expires']??0)<time())delete_option($lock_key);
   if(!add_option($lock_key,$lock,'','no'))return new WP_Error('oai_woodmart_header_busy','Another header operation is in progress',array('status'=>409));
-  global $wpdb;
   try{
-   wp_cache_delete('whb_'.$id,'options');
+   self::refresh($id);
    list($exists,$current)=self::current($id);
    if(!$exists || !OAI_REST::same_option_value($current,$expected))return new WP_Error('oai_woodmart_header_conflict','WoodMart header changed after the sandbox snapshot',array('status'=>409));
-   $updated=$builder->factory->update_header($id,(string)$desired['name'],$desired['structure'],$desired['settings']);
-   if(is_wp_error($updated))return $updated;
+   try{$updated=$builder->factory->update_header($id,(string)$desired['name'],$desired['structure'],$desired['settings']);}
+   catch(Throwable $e){$updated=new WP_Error('oai_woodmart_header_write_exception','WoodMart Header Builder save threw an exception',array('status'=>500));}
    self::refresh($id);
    list($after_exists,$after)=self::current($id);
    if($after_exists && OAI_REST::same_option_value($after,$desired))return true;
-   // Restore only if the current state still belongs to this operation.
-   if($after_exists && OAI_REST::same_option_value($after,$desired)){
-    $builder->factory->update_header($id,(string)$expected['name'],$expected['structure'],$expected['settings']);
-    self::refresh($id);
-    return new WP_Error('oai_woodmart_header_verify','Header save did not remain stable; previous header restored',array('status'=>500,'write_committed'=>false));
-   }
-   return new WP_Error('oai_woodmart_header_verify','Header save could not be verified; current state was preserved for manual inspection',array('status'=>500,'write_committed'=>true));
-  }catch(Throwable $e){
-   return new WP_Error('oai_woodmart_header_write','WoodMart Header Builder save failed',array('status'=>500,'write_committed'=>true));
+   if($after_exists && OAI_REST::same_option_value($after,$expected))return new WP_Error('oai_woodmart_header_write','WoodMart Header Builder did not persist the approved layout',array('status'=>500,'write_committed'=>false,'native_error'=>is_wp_error($updated)?$updated->get_error_code():null));
+   return new WP_Error('oai_woodmart_header_verify','Header save produced an unexpected state; automatic overwrite is blocked for manual inspection',array('status'=>409,'write_committed'=>true,'native_error'=>is_wp_error($updated)?$updated->get_error_code():null));
   }finally{
    $held=get_option($lock_key,false);
    if(is_array($held) && hash_equals((string)($held['token']??''),(string)$lock['token']))delete_option($lock_key);
-   wp_cache_delete('whb_'.$id,'options');
+   self::refresh($id);
   }
  }
 
