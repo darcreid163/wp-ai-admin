@@ -11,7 +11,7 @@ function sanitize_key($v){return preg_replace('/[^a-z0-9_\-]/','',strtolower((st
 function current_user_can($cap){return in_array($cap,array('manage_options','edit_theme_options'),true);}
 function is_wp_error($v){return $v instanceof WP_Error;}
 function get_post($id){
-    if((int)$id===501)return (object)array('ID'=>501,'post_type'=>'nav_menu_item','post_status'=>'publish');
+    if((int)$id===501)return (object)array('ID'=>501,'post_type'=>'nav_menu_item','post_status'=>'publish','post_title'=>'Mega menu parent');
     if((int)$id===900)return (object)array('ID'=>900,'post_type'=>'cms_block','post_status'=>'publish');
     if((int)$id===901)return (object)array('ID'=>901,'post_type'=>'cms_block','post_status'=>'draft');
     return null;
@@ -43,7 +43,7 @@ function check_mega($condition,$message){
 $before=OAI_P0::woodmart_mega_menu_snapshot(501);
 check_mega(!is_wp_error($before) && empty($before['design_exists']) && empty($before['block_exists']),'reads an ordinary menu item without inventing mega-menu metadata');
 
-$after=array('item_id'=>501,'menu_id'=>20,'design_exists'=>true,'design'=>'full-width','block_exists'=>true,'block_id'=>900);
+$after=$before;$after['design_exists']=true;$after['design']='full-width';$after['block_exists']=true;$after['block_id']=900;
 $write=OAI_P0::write('woodmart_mega_menu','501',$after,array('woodmart_version'=>'8.6.2'));
 check_mega(!is_wp_error($write),'assigns a published HTML Block using the WoodMart metadata whitelist');
 $current=OAI_P0::woodmart_mega_menu_snapshot(501);
