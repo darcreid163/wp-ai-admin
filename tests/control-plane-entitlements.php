@@ -14,6 +14,14 @@ $check=function($envelope,$key=null,$site='site-a',$install='inst-a',$reg='reg-a
 $assert=function($condition,$message){if(!$condition)throw new RuntimeException($message);};
 $good=$sign($claims,$public);
 $assert($check($good)['valid']===true,'Valid entitlement rejected');
+foreach(array('free','daily','pro','business','businesspro') as $plan){
+ $planClaims=array_merge($claims,array('plan'=>$plan));
+ $quota=array('limit'=>array('free'=>50,'daily'=>500,'pro'=>2000,'business'=>5000,'businesspro'=>10000)[$plan],'period'=>'day');
+ $planClaims['quota']=$quota;
+ $assert($check($sign($planClaims,$public))['valid']===true,'Approved plan rejected: '.$plan);
+}
+$unknown=array_merge($claims,array('plan'=>'enterprise'));
+$assert($check($sign($unknown,$public))['reason']==='policy','Unknown plan accepted');
 $modified=$good;$modified['payload']=$enc(json_encode(array_merge($claims,array('plan'=>'business'))));
 $assert($check($modified)['reason']==='signature','Tampered plan accepted');
 $assert($check($good,$public,'site-b')['reason']==='binding','Cross-site replay accepted');
@@ -31,5 +39,4 @@ foreach(array(
  'bad_version'=>array('contract_version'=>2),
  'bad_sequence'=>array('policy_sequence'=>true),
 ) as $label=>$changes)$assert($check($sign(array_merge($claims,$changes),$public))['valid']===false,$label.' accepted');
-echo "PASS: signed entitlement, tamper, binding, expiry, sequence, key, contract and policy negatives\n";
-
+echo "PASS: signed entitlement, all five approved plans, tamper, binding, expiry, sequence, key, contract and policy negatives\n";
