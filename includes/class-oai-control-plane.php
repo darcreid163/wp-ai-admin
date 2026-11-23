@@ -8,6 +8,7 @@ class OAI_Control_Plane {
  const MAX_TTL_SECONDS=3600;
  const CLOCK_SKEW_SECONDS=60;
  const DOMAIN="OAI-ENTITLEMENT-V1\n";
+ const ALLOWED_PLANS=array('free','daily','pro','business','businesspro');
 
  private static function decode64($value,$max_bytes){
   if(!is_string($value)||$value===''||strlen($value)>($max_bytes*4/3+4)||!preg_match('/^[A-Za-z0-9_-]+$/D',$value))return false;
@@ -40,7 +41,7 @@ class OAI_Control_Plane {
   if(!is_int($now)||$claims['issued_at']>$claims['not_before']||$claims['not_before']>$claims['expires_at']||$claims['expires_at']-$claims['issued_at']>self::MAX_TTL_SECONDS||$claims['expires_at']<=$claims['issued_at'])return $fail('time_window');
   if($claims['issued_at']>$now+self::CLOCK_SKEW_SECONDS||$claims['not_before']>$now+self::CLOCK_SKEW_SECONDS||$claims['expires_at']<=$now)return $fail('time_invalid');
   if(!is_int($last_sequence)||$last_sequence<0||$claims['policy_sequence']<1||$claims['policy_sequence']<$last_sequence)return $fail('sequence');
-  if(!in_array($claims['plan']??null,array('free','daily','pro','business'),true)||!is_bool($claims['active']??null)||!is_bool($claims['write_frozen']??null))return $fail('policy');
+  if(!in_array($claims['plan']??null,self::ALLOWED_PLANS,true)||!is_bool($claims['active']??null)||!is_bool($claims['write_frozen']??null))return $fail('policy');
   if(!is_array($claims['features']??null)||count($claims['features'])>32||array_values($claims['features'])!==$claims['features'])return $fail('features');
   $allowed=array('read','plan','sandbox','preview','verify','proof','rollback','elementor','gutenberg','woocommerce','wp_cli','mcp','mcp_apply','mcp_rollback','agent');
   foreach($claims['features'] as $feature)if(!is_string($feature)||!in_array($feature,$allowed,true))return $fail('features');
@@ -50,4 +51,3 @@ class OAI_Control_Plane {
   return array('valid'=>true,'claims'=>$claims);
  }
 }
-
