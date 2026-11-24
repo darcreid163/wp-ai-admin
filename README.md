@@ -1,3 +1,7 @@
+> **Repository status — 2026-11-24:** This is a historical public Native-only publication snapshot (README release line: 2.1.16), not the active development source. The canonical Native + Cloud development repository is the private monorepo [darcreid163/okean-ai-admin](https://github.com/darcreid163/okean-ai-admin). Current integration work is not yet qualified for release. Do not copy this snapshot over newer monorepo code or treat it as the latest release artifact. Native-only publication updates will be exported here only after the canonical monorepo passes its release gates.
+
+---
+
 # WP AI Admin — Native WordPress Plugin
 
 WP AI Admin provides an MCP-compatible WordPress integration with support for Elementor, WooCommerce, content, file tools, controlled changes, verification and rollback.
