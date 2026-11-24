@@ -873,7 +873,7 @@ frame.addEventListener('load',function(){
   return OAI_Elementor::save_document($ref['post_id'],$data);
  }
  public static function snapshot_for_verify($type,$target){ return self::current($type,$target); }
- private static function current($type,$target){ if($type==='woodmart_theme_setting')return OAI_Woodmart::current($target); if(class_exists('OAI_P0')){$p0=OAI_P0::current($type,$target);if($p0!==null)return $p0;} switch($type){case 'elementor_page_create': $parts=explode(':',(string)$target,2); $pid=absint($parts[1]??0); if(!$pid)return array(false,null); $v=OAI_Verify::elementor_page($pid); return is_wp_error($v)?array(false,$v):array(true,$v); case 'option_update': $exists=get_option($target,null); return array($exists!==null,$exists===null?null:self::option_storage_value($exists)); case 'post_title': return array(true,get_post_field('post_title',(int)$target)); case 'post_excerpt': return array(true,get_post_field('post_excerpt',(int)$target)); case 'post_content': return array(true,get_post_field('post_content',(int)$target)); case 'elementor_widget_html': return self::elementor_widget_html_current($target); case 'elementor_widget_settings': $parts=explode(':',(string)$target,2); $ref=OAI_Elementor::find_node(absint($parts[0]??0),sanitize_text_field($parts[1]??'')); return is_wp_error($ref)?array(false,null):array(true,is_array($ref['node']['settings']??null)?$ref['node']['settings']:array()); case 'file_write': $parts=explode(':',$target,2); if(count($parts)!==2)return new WP_Error('oai_target','File target must be SCOPE:PATH',array('status'=>400)); $r=OAI_Files::read($parts[0],$parts[1]); if(is_wp_error($r))return array(false,null); return array(true,$r['content']??''); case 'theme_file_write': $parts=explode(':',$target,2); if(count($parts)!==2)return new WP_Error('oai_target','File target must be SCOPE:PATH',array('status'=>400)); $r=OAI_Files::read($parts[0],$parts[1]); if(is_wp_error($r))return array(false,null); return array(true,$r['content']??''); case 'woo_product_price': if(!class_exists('WooCommerce'))return array(false,null); $p=wc_get_product((int)$target); return array((bool)$p,$p?$p->get_regular_price():null); case 'woo_product_stock': if(!class_exists('WooCommerce'))return array(false,null); $p=wc_get_product((int)$target); return array((bool)$p,$p?array('stock'=>$p->get_stock_quantity(),'manage_stock'=>$p->managing_stock(),'stock_status'=>$p->get_stock_status()):null); case 'woocommerce_product': if(!class_exists('WooCommerce'))return array(false,null); $v=OAI_WooCommerce::get_full((int)explode(':',(string)$target,2)[0]); return is_wp_error($v)?array(false,$v):array(true,$v); } return array(false,null); }
+ private static function current($type,$target){ if($type==='woodmart_theme_setting')return OAI_Woodmart::current($target); if($type==='woodmart_header_layout')return OAI_Woodmart_Header::current($target); if(class_exists('OAI_P0')){$p0=OAI_P0::current($type,$target);if($p0!==null)return $p0;} switch($type){case 'elementor_page_create': $parts=explode(':',(string)$target,2); $pid=absint($parts[1]??0); if(!$pid)return array(false,null); $v=OAI_Verify::elementor_page($pid); return is_wp_error($v)?array(false,$v):array(true,$v); case 'option_update': $exists=get_option($target,null); return array($exists!==null,$exists===null?null:self::option_storage_value($exists)); case 'post_title': return array(true,get_post_field('post_title',(int)$target)); case 'post_excerpt': return array(true,get_post_field('post_excerpt',(int)$target)); case 'post_content': return array(true,get_post_field('post_content',(int)$target)); case 'elementor_widget_html': return self::elementor_widget_html_current($target); case 'elementor_widget_settings': $parts=explode(':',(string)$target,2); $ref=OAI_Elementor::find_node(absint($parts[0]??0),sanitize_text_field($parts[1]??'')); return is_wp_error($ref)?array(false,null):array(true,is_array($ref['node']['settings']??null)?$ref['node']['settings']:array()); case 'file_write': $parts=explode(':',$target,2); if(count($parts)!==2)return new WP_Error('oai_target','File target must be SCOPE:PATH',array('status'=>400)); $r=OAI_Files::read($parts[0],$parts[1]); if(is_wp_error($r))return array(false,null); return array(true,$r['content']??''); case 'theme_file_write': $parts=explode(':',$target,2); if(count($parts)!==2)return new WP_Error('oai_target','File target must be SCOPE:PATH',array('status'=>400)); $r=OAI_Files::read($parts[0],$parts[1]); if(is_wp_error($r))return array(false,null); return array(true,$r['content']??''); case 'woo_product_price': if(!class_exists('WooCommerce'))return array(false,null); $p=wc_get_product((int)$target); return array((bool)$p,$p?$p->get_regular_price():null); case 'woo_product_stock': if(!class_exists('WooCommerce'))return array(false,null); $p=wc_get_product((int)$target); return array((bool)$p,$p?array('stock'=>$p->get_stock_quantity(),'manage_stock'=>$p->managing_stock(),'stock_status'=>$p->get_stock_status()):null); case 'woocommerce_product': if(!class_exists('WooCommerce'))return array(false,null); $v=OAI_WooCommerce::get_full((int)explode(':',(string)$target,2)[0]); return is_wp_error($v)?array(false,$v):array(true,$v); } return array(false,null); }
  public static function sandbox_list($req=null){
   $page=1;$per_page=50;$statuses=array();
   if($req instanceof WP_REST_Request){
@@ -886,6 +886,10 @@ frame.addEventListener('load',function(){
   return array('page'=>$page,'per_page'=>$per_page,'total'=>$total,'total_pages'=>max(1,(int)ceil($total/$per_page)),'statuses'=>$statuses,'items'=>$rows);
  }
  private static function validate_sandbox_target($type,$target){
+  if($type==='woodmart_header_layout'){
+   $header=OAI_Woodmart_Header::get($target);
+   if(is_wp_error($header))return $header;
+  }
   if($type==='option_update'){
    global $wpdb;
    $key=(string)$target;
@@ -980,7 +984,7 @@ frame.addEventListener('load',function(){
   return is_scalar($value)||$value===null?(string)$value:$value;
  }
  public static function same_snapshot($type,$current,$expected){
-  if(in_array($type,array('option_update','woodmart_theme_setting'),true)){
+  if(in_array($type,array('option_update','woodmart_theme_setting','woodmart_header_layout'),true)){
    return self::same_option_value($current,$expected);
   }
   return OAI_Verify::same($current,$expected);
@@ -1021,7 +1025,7 @@ frame.addEventListener('load',function(){
  public static function sandbox_create($req){
   $type=sanitize_key($req->get_param('type'));
   $target=sanitize_text_field((string)$req->get_param('target'));
-  $allowed=array('woodmart_theme_setting','option_update','post_title','post_excerpt','post_content','woo_product_price','woo_product_stock','elementor_widget_html','elementor_widget_settings','elementor_page_create','file_write');
+  $allowed=array('woodmart_theme_setting','woodmart_header_layout','option_update','post_title','post_excerpt','post_content','woo_product_price','woo_product_stock','elementor_widget_html','elementor_widget_settings','elementor_page_create','file_write');
   if(!in_array($type,$allowed,true))return new WP_Error('oai_type','Unsupported type',array('status'=>400));
   $target_guard=self::validate_sandbox_target($type,$target); if(is_wp_error($target_guard))return $target_guard;
   $raw=$req->get_param('value');
@@ -1032,6 +1036,10 @@ frame.addEventListener('load',function(){
   if($type==='woodmart_theme_setting'){
    if($requested_before!==null||$requested_after!==null)return new WP_Error('oai_woodmart_snapshot','Snapshots are generated by the adapter',array('status'=>400));
    $woodmart_plan=OAI_Woodmart::plan($target,$raw);if(is_wp_error($woodmart_plan))return $woodmart_plan;
+   $before=$woodmart_plan['before'];$after=$woodmart_plan['after'];$exists=true;
+  }elseif($type==='woodmart_header_layout'){
+   if($requested_before!==null||$requested_after!==null)return new WP_Error('oai_woodmart_header_snapshot','Header snapshots are generated by the adapter',array('status'=>400));
+   $woodmart_plan=OAI_Woodmart_Header::plan($target,$raw);if(is_wp_error($woodmart_plan))return $woodmart_plan;
    $before=$woodmart_plan['before'];$after=$woodmart_plan['after'];$exists=true;
   }elseif($type==='elementor_widget_settings'){
    if(!is_array($raw))return new WP_Error('oai_changes','Elementor changes must be an object',array('status'=>400));
@@ -1065,7 +1073,7 @@ frame.addEventListener('load',function(){
   $woo_guard=self::validate_woo_payload($type,$after);if(is_wp_error($woo_guard))return $woo_guard;
   $op=OAI_Operations::new_id();
   $now=current_time('mysql',true); $expiry=gmdate('Y-m-d H:i:s',time()+7*DAY_IN_SECONDS);
-  $diff=array('changed'=>in_array($type,array('option_update','woodmart_theme_setting'),true)?(!$exists||!self::same_option_value($before,$after)):$before!==$after,'before'=>$before,'after'=>$after);
+  $diff=array('changed'=>in_array($type,array('option_update','woodmart_theme_setting','woodmart_header_layout'),true)?(!$exists||!self::same_option_value($before,$after)):$before!==$after,'before'=>$before,'after'=>$after);
   if(empty($diff['changed']))return new WP_Error('oai_noop','Operation does not change the target',array('status'=>409));
   $meta=array('before_exists'=>$exists,'after_exists'=>true);
   if($woodmart_plan!==null)$meta=array_merge($meta,$woodmart_plan['meta']);
@@ -1193,7 +1201,10 @@ frame.addEventListener('load',function(){
    }
 
    try {
-    if($r['type']==='woodmart_theme_setting'){
+    if($r['type']==='woodmart_header_layout'){
+     $meta['woodmart_expected_before']=$before;
+     $err=OAI_Woodmart_Header::write($r['target'],$after,$before,$meta,false);
+    }elseif($r['type']==='woodmart_theme_setting'){
      $err=OAI_Woodmart::write($r['target'],$after,$before,$meta['native_input']??null);
     }elseif($r['type']==='woocommerce_product'){
      $parts=explode(':',$r['target'],2); $err=OAI_WooCommerce::apply(absint($parts[0]),is_array($after)?$after:array());
@@ -1203,7 +1214,7 @@ frame.addEventListener('load',function(){
      $expected_file_sha=(in_array($r['type'],array('file_write','theme_file_write'),true))?hash('sha256',(string)$before):'';
      $err=self::write($r['type'],$r['target'],$after,$expected_file_sha);
     } else {
-     $err=self::write($r['type'],$r['target'],$after);
+     $err=self::write($r['type'],$r['target'],$after,'',$meta);
     }
    } catch (Throwable $e) {
     $err=new WP_Error('oai_apply_exception',$e->getMessage(),array('status'=>500));
@@ -1265,6 +1276,7 @@ frame.addEventListener('load',function(){
    $applied=json_decode((string)$r['applied_data'],true);
    if($r['applied_data']===null || $r['applied_data']==='')$applied=json_decode((string)$r['after_data'],true);
    if($r['type']==='woodmart_theme_setting')$meta['woodmart_expected']=$applied;
+   if($r['type']==='woodmart_header_layout')$meta['woodmart_expected']=$applied;
    if(in_array($r['type'],array('file_write','theme_file_write'),true))$meta['applied_sha256']=hash('sha256',(string)$applied);
 
    // Rollback is destructive too: never overwrite a change made after Apply.
@@ -1526,6 +1538,8 @@ frame.addEventListener('load',function(){
  }
  private static function refresh_verification_target($type,$target,$meta=array()){
   if($type==='woodmart_theme_setting')OAI_Woodmart::refresh();
+  if($type==='woodmart_header_layout')OAI_Woodmart_Header::refresh($target);
+  if($type==='woodmart_mega_menu')clean_post_cache(absint($target));
   if(in_array($type,array('post_title','post_excerpt','post_content','elementor_widget_html','elementor_widget_settings','elementor_page_create'),true)){
    if($type==='elementor_page_create')$post_id=absint($meta['preview_page_id']??0);
    else{$parts=explode(':',(string)$target,2);$post_id=absint($parts[0]??0);}
@@ -1545,6 +1559,10 @@ frame.addEventListener('load',function(){
   OAI_Audit::log('apply_failed',array_merge($r,array('status'=>'apply_failed')),array('verification'=>$verification));
   OAI_Receipts::store($id,array('event'=>'apply_failed','status'=>'apply_failed','at'=>gmdate('c'),'verification'=>$verification,'rollback_attempted'=>false),OAI_Proof::make($id));
 
+  if($r['type']==='woodmart_header_layout'&&is_wp_error($failure)&&($failure->get_error_data()['write_committed']??null)===false){
+   list($exists,$current)=self::current($r['type'],$r['target']);
+   if($exists&&self::same_snapshot($r['type'],$current,$before))return $failure;
+  }
   if($r['type']==='woodmart_theme_setting'&&is_wp_error($failure)&&($failure->get_error_data()['write_committed']??null)===false){
    list($exists,$current)=OAI_Woodmart::current($r['target']);
    if($exists&&self::same_snapshot($r['type'],$current,$before)){
@@ -1557,6 +1575,7 @@ frame.addEventListener('load',function(){
   // newer/partial state and require manual inspection.
   $expected_after=json_decode((string)$r['after_data'],true);
   if($r['type']==='woodmart_theme_setting')$meta['woodmart_expected']=$expected_after;
+  if($r['type']==='woodmart_header_layout')$meta['woodmart_expected']=$expected_after;
   // File rollback must carry the exact post-apply SHA into the write/delete guard.
   // The conflict check above is intentionally followed by a second, write-time
   // SHA check to close the TOCTOU window between verification and recovery.
@@ -1612,8 +1631,8 @@ frame.addEventListener('load',function(){
   foreach($meta as $row){if($row['type']==='elementor_page_create' && $row['target']===$target && $row['status']!=='rejected' && $row['status']!=='rolled_back'){ $m=json_decode($row['meta_data'],true); $final=sanitize_key((string)($m['final_status']??'draft')); if(!in_array($final,array('draft','publish','private'),true))$final='draft'; return wp_update_post(array('ID'=>$page_id,'post_status'=>$final),true);}}
   return wp_update_post(array('ID'=>$page_id,'post_status'=>'publish'),true);
  }
- private static function write($type,$target,$v,$expected_sha256=''){ if(class_exists('OAI_P0')&&in_array($type,array('elementor_page_layout','media_alt','media_title','media_featured','media_upload','menu_create','menu_add_item','menu_remove_item','menu_move_item','menu_assign_location','woocommerce_product_create'),true))return OAI_P0::write($type,$target,$v,array()); switch($type){case 'elementor_page_create': return self::elementor_page_publish($target); case 'option_update':update_option($target,$v,false);return true; case 'post_title':return wp_update_post(array('ID'=>(int)$target,'post_title'=>$v),true); case 'post_excerpt':return wp_update_post(array('ID'=>(int)$target,'post_excerpt'=>$v),true); case 'post_content':$allowed=OAI_Elementor::content_write_allowed((int)$target);return is_wp_error($allowed)?$allowed:wp_update_post(array('ID'=>(int)$target,'post_content'=>$v),true); case 'elementor_widget_html':return self::elementor_widget_html_write($target,$v); case 'elementor_widget_settings':return OAI_Elementor::save_settings($target,is_array($v)?$v:array()); case 'file_write': $parts=explode(':',$target,2); if(count($parts)!==2)return new WP_Error('oai_target','File target must be SCOPE:PATH',array('status'=>400)); $w=OAI_Files::write($parts[0],$parts[1],(string)$v,$expected_sha256); return is_wp_error($w)?$w:true; case 'theme_file_write': $parts=explode(':',$target,2); if(count($parts)!==2)return new WP_Error('oai_target','File target must be SCOPE:PATH',array('status'=>400)); $w=OAI_Files::write($parts[0],$parts[1],(string)$v,$expected_sha256); return is_wp_error($w)?$w:true; case 'woo_product_price':$p=wc_get_product((int)$target);if(!$p)return new WP_Error('oai_target','Product not found',array('status'=>404));$p->set_regular_price($v);$p->set_price($v);$p->save();return true; case 'woo_product_stock':$p=wc_get_product((int)$target);if(!$p)return new WP_Error('oai_target','Product not found',array('status'=>404));$is_array=is_array($v);$stock=$is_array?($v['stock']??null):$v;$manage=$is_array&&array_key_exists('manage_stock',$v)?(bool)$v['manage_stock']:true;$status=$is_array&&array_key_exists('stock_status',$v)?sanitize_key((string)$v['stock_status']):($stock===null?'instock':((int)$stock>0?'instock':'outofstock'));$p->set_manage_stock($manage);$p->set_stock_quantity($stock===null?null:(int)$stock);$p->set_stock_status($status);$p->save();return true;} return new WP_Error('oai_type','Unsupported type',array('status'=>400)); }
- private static function rollback_write($type,$target,$v,$meta){ if($type==='woodmart_theme_setting')return OAI_Woodmart::write($target,$v,$meta['woodmart_expected']??null,null,true); if(class_exists('OAI_P0')&&in_array($type,array('media_alt','media_title','media_featured','media_upload','menu_create','menu_add_item','menu_remove_item','menu_move_item','menu_assign_location','woocommerce_product_create'),true))return OAI_P0::rollback($type,$target,$v,$meta); if($type==='elementor_page_create'){ $page_id=absint($meta['preview_page_id']??0); if($page_id){wp_delete_post($page_id,true);} return true; } if($type==='file_write'||$type==='theme_file_write'){ $parts=explode(':',$target,2); if(count($parts)!==2)return new WP_Error('oai_target','File target must be SCOPE:PATH',array('status'=>400)); if(empty($meta['before_exists'])){ $expected=isset($meta['applied_sha256'])?(string)$meta['applied_sha256']:''; $d=OAI_Files::delete($parts[0],$parts[1],$expected); return is_wp_error($d)?$d:true; } $expected=isset($meta['applied_sha256'])?(string)$meta['applied_sha256']:''; $w=OAI_Files::write($parts[0],$parts[1],(string)$v,$expected); return is_wp_error($w)?$w:true; } if($type==='option_update' && empty($meta['before_exists'])){delete_option($target);return true;} if($type==='woo_product_stock' && is_array($v)){ $p=wc_get_product((int)$target);if(!$p)return new WP_Error('oai_target','Product not found',array('status'=>404));$p->set_manage_stock((bool)($v['manage_stock']??false));$p->set_stock_quantity($v['stock']??null);$p->set_stock_status($v['stock_status']??'instock');$p->save();return true;} if($type==='woocommerce_product'){ $parts=explode(':',$target,2); $product_id=absint($parts[0]??0); if(!$product_id)return new WP_Error('oai_target','Invalid WooCommerce product target',array('status'=>400)); $w=OAI_WooCommerce::apply($product_id,is_array($v)?$v:array()); return is_wp_error($w)?$w:true; } return self::write($type,$target,$v); }
+ private static function write($type,$target,$v,$expected_sha256='',$meta=array()){ if($type==='woodmart_header_layout')return OAI_Woodmart_Header::write($target,$v,$meta['woodmart_expected_before']??null,$meta,false); if(class_exists('OAI_P0')&&in_array($type,array('elementor_page_layout','media_alt','media_title','media_featured','media_upload','menu_create','menu_add_item','menu_remove_item','menu_move_item','menu_assign_location','woodmart_mega_menu','woocommerce_product_create'),true))return OAI_P0::write($type,$target,$v,$meta); switch($type){case 'elementor_page_create': return self::elementor_page_publish($target); case 'option_update':update_option($target,$v,false);return true; case 'post_title':return wp_update_post(array('ID'=>(int)$target,'post_title'=>$v),true); case 'post_excerpt':return wp_update_post(array('ID'=>(int)$target,'post_excerpt'=>$v),true); case 'post_content':$allowed=OAI_Elementor::content_write_allowed((int)$target);return is_wp_error($allowed)?$allowed:wp_update_post(array('ID'=>(int)$target,'post_content'=>$v),true); case 'elementor_widget_html':return self::elementor_widget_html_write($target,$v); case 'elementor_widget_settings':return OAI_Elementor::save_settings($target,is_array($v)?$v:array()); case 'file_write': $parts=explode(':',$target,2); if(count($parts)!==2)return new WP_Error('oai_target','File target must be SCOPE:PATH',array('status'=>400)); $w=OAI_Files::write($parts[0],$parts[1],(string)$v,$expected_sha256); return is_wp_error($w)?$w:true; case 'theme_file_write': $parts=explode(':',$target,2); if(count($parts)!==2)return new WP_Error('oai_target','File target must be SCOPE:PATH',array('status'=>400)); $w=OAI_Files::write($parts[0],$parts[1],(string)$v,$expected_sha256); return is_wp_error($w)?$w:true; case 'woo_product_price':$p=wc_get_product((int)$target);if(!$p)return new WP_Error('oai_target','Product not found',array('status'=>404));$p->set_regular_price($v);$p->set_price($v);$p->save();return true; case 'woo_product_stock':$p=wc_get_product((int)$target);if(!$p)return new WP_Error('oai_target','Product not found',array('status'=>404));$is_array=is_array($v);$stock=$is_array?($v['stock']??null):$v;$manage=$is_array&&array_key_exists('manage_stock',$v)?(bool)$v['manage_stock']:true;$status=$is_array&&array_key_exists('stock_status',$v)?sanitize_key((string)$v['stock_status']):($stock===null?'instock':((int)$stock>0?'instock':'outofstock'));$p->set_manage_stock($manage);$p->set_stock_quantity($stock===null?null:(int)$stock);$p->set_stock_status($status);$p->save();return true;} return new WP_Error('oai_type','Unsupported type',array('status'=>400)); }
+ private static function rollback_write($type,$target,$v,$meta){ if($type==='woodmart_theme_setting')return OAI_Woodmart::write($target,$v,$meta['woodmart_expected']??null,null,true); if($type==='woodmart_header_layout')return OAI_Woodmart_Header::write($target,$v,$meta['woodmart_expected']??null,$meta,true); if(class_exists('OAI_P0')&&in_array($type,array('media_alt','media_title','media_featured','media_upload','menu_create','menu_add_item','menu_remove_item','menu_move_item','menu_assign_location','woodmart_mega_menu','woocommerce_product_create'),true))return OAI_P0::rollback($type,$target,$v,$meta); if($type==='elementor_page_create'){ $page_id=absint($meta['preview_page_id']??0); if($page_id){wp_delete_post($page_id,true);} return true; } if($type==='file_write'||$type==='theme_file_write'){ $parts=explode(':',$target,2); if(count($parts)!==2)return new WP_Error('oai_target','File target must be SCOPE:PATH',array('status'=>400)); if(empty($meta['before_exists'])){ $expected=isset($meta['applied_sha256'])?(string)$meta['applied_sha256']:''; $d=OAI_Files::delete($parts[0],$parts[1],$expected); return is_wp_error($d)?$d:true; } $expected=isset($meta['applied_sha256'])?(string)$meta['applied_sha256']:''; $w=OAI_Files::write($parts[0],$parts[1],(string)$v,$expected); return is_wp_error($w)?$w:true; } if($type==='option_update' && empty($meta['before_exists'])){delete_option($target);return true;} if($type==='woo_product_stock' && is_array($v)){ $p=wc_get_product((int)$target);if(!$p)return new WP_Error('oai_target','Product not found',array('status'=>404));$p->set_manage_stock((bool)($v['manage_stock']??false));$p->set_stock_quantity($v['stock']??null);$p->set_stock_status($v['stock_status']??'instock');$p->save();return true;} if($type==='woocommerce_product'){ $parts=explode(':',$target,2); $product_id=absint($parts[0]??0); if(!$product_id)return new WP_Error('oai_target','Invalid WooCommerce product target',array('status'=>400)); $w=OAI_WooCommerce::apply($product_id,is_array($v)?$v:array()); return is_wp_error($w)?$w:true; } return self::write($type,$target,$v); }
  public static function files_list($req){return OAI_Files::list_files((string)$req->get_param('scope'),(string)$req->get_param('path'));}
  public static function files_read($req){
   $scope=(string)$req->get_param('scope'); $path=(string)$req->get_param('path');

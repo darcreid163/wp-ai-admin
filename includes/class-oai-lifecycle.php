@@ -15,6 +15,8 @@ class OAI_Lifecycle {
   if($type==='woocommerce_product_create')return array('action'=>'delete_created_product','product_id'=>absint($meta['product_id']??$target),'created_by_ai_admin'=>true);
   if($type==='file_write'||$type==='theme_file_write'||$type==='workspace_file_write')return array('action'=>$exists?'restore_file':'delete_created_file','target'=>$target,'before_exists'=>$exists,'before_sha256'=>hash('sha256',(string)$before));
   if($type==='woodmart_theme_setting')return array('action'=>'restore_native_theme_setting','target'=>$target,'layer'=>'base','base_existed'=>!empty($before['base_exists']));
+  if($type==='woodmart_header_layout')return array('action'=>'restore_woodmart_header_layout','target'=>$target,'header_id'=>(string)$target,'snapshot_sha256'=>hash('sha256',wp_json_encode($before,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE)));
+  if($type==='woodmart_mega_menu')return array('action'=>'restore_woodmart_mega_menu','target'=>$target,'snapshot_sha256'=>hash('sha256',wp_json_encode($before,JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE)));
   if($type==='option_update'&&!$exists)return array('action'=>'delete_option','target'=>$target);
   return array('action'=>'restore_snapshot','type'=>$type,'target'=>$target);
  }

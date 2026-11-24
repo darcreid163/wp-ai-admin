@@ -167,6 +167,53 @@ class OAI_P0 {
   $after=$before;if(array_key_exists('parent',$a))$after['parent']=absint($a['parent']);if(array_key_exists('position',$a))$after['order']=absint($a['position']);
   return self::op('menu_move_item',(string)$item_id,$before,$after,array('item_id'=>$item_id),true);
  }
+ public static function woodmart_mega_menu_snapshot($item_id){
+  if(!current_user_can('edit_theme_options'))return new WP_Error('oai_menu_permission','edit_theme_options capability required',array('status'=>403));
+  $item_id=absint($item_id);
+  $p=get_post($item_id);
+  if(!$p || $p->post_type!=='nav_menu_item')return new WP_Error('oai_menu_item_not_found','WordPress menu item not found',array('status'=>404));
+  $terms=wp_get_object_terms($item_id,'nav_menu',array('fields'=>'ids'));
+  $menu_id=!is_wp_error($terms)&&$terms?absint($terms[0]):0;
+  if(!$menu_id)return new WP_Error('oai_menu_not_found','Menu item is not attached to a WordPress menu',array('status'=>409));
+  $design_exists=metadata_exists('post',$item_id,'_menu_item_design');
+  $block_exists=metadata_exists('post',$item_id,'_menu_item_block');
+  return array(
+   'item_id'=>$item_id,
+   'menu_id'=>$menu_id,
+   'title'=>(string)$p->post_title,
+   'url'=>(string)get_post_meta($item_id,'_menu_item_url',true),
+   'parent'=>absint(get_post_meta($item_id,'_menu_item_menu_item_parent',true)),
+   'object_type'=>(string)get_post_meta($item_id,'_menu_item_type',true),
+   'object'=>(string)get_post_meta($item_id,'_menu_item_object',true),
+   'object_id'=>absint(get_post_meta($item_id,'_menu_item_object_id',true)),
+   'design_exists'=>$design_exists,
+   'design'=>$design_exists?(string)get_post_meta($item_id,'_menu_item_design',true):'default',
+   'block_exists'=>$block_exists,
+   'block_id'=>$block_exists?absint(get_post_meta($item_id,'_menu_item_block',true)):0,
+  );
+ }
+
+ public static function woodmart_mega_menu($a){
+  if(!current_user_can('edit_theme_options'))return new WP_Error('oai_menu_permission','edit_theme_options capability required',array('status'=>403));
+  if(!defined('WOODMART_VERSION') || (string)WOODMART_VERSION!=='8.6.2')return new WP_Error('oai_woodmart_mega_version','WoodMart mega-menu writes are not enabled for this unverified theme version',array('status'=>409,'theme_version'=>defined('WOODMART_VERSION')?WOODMART_VERSION:null));
+  $item_id=absint($a['item_id']??0);
+  $before=self::woodmart_mega_menu_snapshot($item_id);
+  if(is_wp_error($before))return $before;
+  $design=sanitize_key((string)($a['design']??'full-width'));
+  $allowed=array('default','full-width','full-height','sized','aside');
+  if(!in_array($design,$allowed,true))return new WP_Error('oai_woodmart_mega_design','Unsupported WoodMart mega-menu design',array('status'=>422,'allowed'=>$allowed));
+  $block_id=absint($a['block_id']??0);
+  if($design==='default'){
+   if($block_id)return new WP_Error('oai_woodmart_mega_block','Default dropdown cannot reference an HTML Block',array('status'=>422));
+   $after=$before;$after['design_exists']=false;$after['design']='default';$after['block_exists']=false;$after['block_id']=0;
+  }else{
+   $block=get_post($block_id);
+   if(!$block || $block->post_type!=='cms_block' || $block->post_status!=='publish')return new WP_Error('oai_woodmart_mega_block','Mega menu requires an already published WoodMart HTML Block',array('status'=>422,'block_id'=>$block_id));
+   $after=$before;$after['design_exists']=true;$after['design']=$design;$after['block_exists']=true;$after['block_id']=$block_id;
+  }
+  return self::op('woodmart_mega_menu',(string)$item_id,$before,$after,array('item_id'=>$item_id,'menu_id'=>$before['menu_id'],'woodmart_version'=>(string)WOODMART_VERSION),true);
+ }
+
  public static function menu_assign_location($a){
   $location=sanitize_key((string)($a['location']??''));$menu_id=absint($a['menu_id']??0);
   if($location===''||!isset(get_registered_nav_menus()[$location]))return new WP_Error('oai_menu_location','Unknown menu location',array('status'=>422,'locations'=>array_keys(get_registered_nav_menus())));
@@ -193,6 +240,7 @@ class OAI_P0 {
   if($type==='media_featured'){ $p=get_post(absint($target));return $p?array(true,(int)get_post_thumbnail_id($p)):array(false,null);}
   if($type==='media_upload'){ $s=self::media_snapshot($target);return is_wp_error($s)?array(false,null):array(true,$s);}
   if($type==='menu_create'){ $s=self::menu_snapshot($target);return is_wp_error($s)?array(false,null):array(true,$s);}
+  if($type==='woodmart_mega_menu'){ $s=self::woodmart_mega_menu_snapshot($target);return is_wp_error($s)?array(false,null):array(true,$s);}
   if(in_array($type,array('menu_add_item','menu_remove_item','menu_move_item'),true)){ $s=self::menu_item_snapshot($target);return is_wp_error($s)?array(false,null):array(true,$s);}
   if($type==='menu_assign_location'){ $l=(array)get_theme_mod('nav_menu_locations',array());return array(array_key_exists((string)$target,$l),array_key_exists((string)$target,$l)?(int)$l[(string)$target]:0);}
   if($type==='woocommerce_product_create'){ $s=OAI_WooCommerce::get_full(absint($target));return is_wp_error($s)?array(false,null):array(true,$s);}
@@ -218,6 +266,27 @@ class OAI_P0 {
   if($type==='media_featured'){if(absint($v))return set_post_thumbnail(absint($target),absint($v));delete_post_thumbnail(absint($target));return true;}
   if($type==='media_upload'){delete_post_meta(absint($target),'_oai_sandbox_artifact');return wp_update_post(array('ID'=>absint($target),'post_status'=>'inherit'),true);}
   if($type==='menu_create'){delete_term_meta(absint($target),'_oai_sandbox_artifact');return true;}
+  if($type==='woodmart_mega_menu'){
+   if(!defined('WOODMART_VERSION') || !hash_equals((string)($meta['woodmart_version']??''),(string)WOODMART_VERSION) || (string)WOODMART_VERSION!=='8.6.2')return new WP_Error('oai_woodmart_mega_context','WoodMart theme version changed after the mega-menu sandbox was created',array('status'=>409));
+   $item_id=absint($target);$current=self::woodmart_mega_menu_snapshot($item_id);if(is_wp_error($current))return $current;
+   if(!is_array($v) || absint($v['item_id']??0)!==$item_id || absint($v['menu_id']??0)!==absint($current['menu_id']))return new WP_Error('oai_woodmart_mega_snapshot','Invalid mega-menu snapshot or menu relation changed',array('status'=>409));
+   $design=sanitize_key((string)($v['design']??''));$allowed=array('default','full-width','full-height','sized','aside');
+   if(!in_array($design,$allowed,true))return new WP_Error('oai_woodmart_mega_design','Unsupported WoodMart mega-menu design',array('status'=>422));
+   $block_id=absint($v['block_id']??0);
+   if(!empty($v['block_exists'])){
+    $block=get_post($block_id);if(!$block||$block->post_type!=='cms_block'||$block->post_status!=='publish'||$design==='default')return new WP_Error('oai_woodmart_mega_block','Only published HTML Blocks can be assigned to non-default mega menus',array('status'=>422));
+    update_post_meta($item_id,'_menu_item_design',$design);
+    update_post_meta($item_id,'_menu_item_block',$block_id);
+   }else{
+    if($design!=='default'||$block_id)return new WP_Error('oai_woodmart_mega_block','Non-default mega-menu design requires a published HTML Block',array('status'=>422));
+    delete_post_meta($item_id,'_menu_item_design');
+    delete_post_meta($item_id,'_menu_item_block');
+   }
+   clean_post_cache($item_id);
+   $saved=self::woodmart_mega_menu_snapshot($item_id);
+   if(is_wp_error($saved) || !OAI_Verify::same($saved,$v))return new WP_Error('oai_woodmart_mega_verify','WoodMart mega-menu metadata did not verify after save',array('status'=>500));
+   return true;
+  }
   if($type==='menu_add_item'){delete_post_meta(absint($target),'_oai_sandbox_artifact');return self::apply_menu_item_snapshot($target,$v);}
   if(in_array($type,array('menu_remove_item','menu_move_item'),true))return self::apply_menu_item_snapshot($target,$v);
   if($type==='menu_assign_location'){ $locations=(array)get_theme_mod('nav_menu_locations',array());if(absint($v))$locations[(string)$target]=absint($v);else unset($locations[(string)$target]);set_theme_mod('nav_menu_locations',$locations);return true;}
